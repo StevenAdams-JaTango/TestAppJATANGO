@@ -1,0 +1,7 @@
+Starting project at /Users/stevenadams/Documents/GitHub/TestAppJATANGO
+› Port 8082 is running this app in another window
+  /Users/stevenadams/Documents/GitHub/TestAppJATANGO (pid 76842)
+Input is required, but 'npx expo' is in non-interactive mode.
+Required input:
+> Use port 8083 instead?
+› Skipping dev server

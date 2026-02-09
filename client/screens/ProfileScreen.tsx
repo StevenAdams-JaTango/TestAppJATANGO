@@ -24,6 +24,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCart } from "@/contexts/CartContext";
 import { Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { supabase } from "@/lib/supabase";
 import { uploadImage } from "@/services/storage";
@@ -47,6 +48,7 @@ export default function ProfileScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   const { user: authUser, signOut } = useAuth();
+  const { totalItems } = useCart();
   const navigation = useNavigation<NavigationProp>();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [, setLoading] = useState(true);
@@ -340,6 +342,7 @@ export default function ProfileScreen() {
             label="My Cart"
             onPress={() => navigation.navigate("Cart")}
             theme={theme}
+            badge={totalItems}
           />
           <View
             style={[styles.menuDivider, { backgroundColor: theme.border }]}
@@ -470,11 +473,13 @@ function MenuItem({
   label,
   onPress,
   theme,
+  badge,
 }: {
   icon: keyof typeof Feather.glyphMap;
   label: string;
   onPress?: () => void;
   theme: any;
+  badge?: number;
 }) {
   return (
     <Pressable
@@ -493,6 +498,13 @@ function MenuItem({
         <Feather name={icon} size={18} color={theme.secondary} />
       </View>
       <ThemedText style={styles.menuLabel}>{label}</ThemedText>
+      {badge != null && badge > 0 && (
+        <View style={[styles.menuBadge, { backgroundColor: theme.primary }]}>
+          <ThemedText style={styles.menuBadgeText}>
+            {badge > 99 ? "99+" : badge}
+          </ThemedText>
+        </View>
+      )}
       <Feather name="chevron-right" size={18} color={theme.textSecondary} />
     </Pressable>
   );
@@ -641,6 +653,21 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     marginLeft: Spacing.md,
+  },
+  menuBadge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+    marginRight: Spacing.sm,
+  },
+  menuBadgeText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
+    includeFontPadding: false,
   },
   menuDivider: {
     height: 1,

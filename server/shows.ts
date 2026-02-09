@@ -2,10 +2,18 @@ import type { Express, Request, Response } from "express";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || "";
+const hasServiceKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabaseServiceKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
   "";
+
+if (!hasServiceKey) {
+  console.warn(
+    "[Shows] ⚠️  SUPABASE_SERVICE_ROLE_KEY not set — using anon key. " +
+      "RLS may block server-side queries. Set SUPABASE_SERVICE_ROLE_KEY in .env",
+  );
+}
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -19,6 +27,7 @@ export function registerShowRoutes(app: Express) {
     async (req: Request, res: Response): Promise<void> => {
       try {
         const { showId } = req.params;
+        console.log("[Shows] Fetching summary for showId:", showId);
 
         // Get show info
         const { data: show, error: showError } = await supabase
@@ -30,16 +39,27 @@ export function registerShowRoutes(app: Express) {
           .single();
 
         if (showError || !show) {
+          console.error(
+            "[Shows] Show not found:",
+            showId,
+            "error:",
+            showError?.message || showError,
+            "code:",
+            showError?.code,
+            "usingServiceKey:",
+            hasServiceKey,
+          );
           res.status(404).json({ error: "Show not found" });
           return;
         }
+        console.log("[Shows] Found show:", show.id, "status:", show.status);
 
         // Get orders placed during this show
         const { data: orders, error: ordersError } = await supabase
           .from("orders")
           .select(
             `
-            id, user_id, total_amount, status, created_at,
+            id, user_id, total_amount, subtotal, sales_tax, status, created_at,
             order_items (
               id, product_id, product_name, product_image,
               quantity, unit_price, seller_id,
@@ -101,10 +121,14 @@ export function registerShowRoutes(app: Express) {
         const uniqueBuyers = new Set<string>();
         let totalRevenue = 0;
         let totalItemsSold = 0;
+        let totalSalesTax = 0;
 
         for (const order of orders || []) {
           uniqueBuyers.add(order.user_id);
-          totalRevenue += parseFloat(order.total_amount);
+          const subtotal = parseFloat(order.subtotal || order.total_amount);
+          const tax = parseFloat(order.sales_tax || "0");
+          totalRevenue += subtotal;
+          totalSalesTax += tax;
 
           for (const item of (order as any).order_items || []) {
             totalItemsSold += item.quantity;
@@ -149,6 +173,15 @@ export function registerShowRoutes(app: Express) {
           (cartEvents || []).map((e) => e.user_id),
         ).size;
 
+        // Calculate fees breakdown (matching JaTango web)
+        const orderCount = (orders || []).length;
+        const grossSales = totalRevenue; // subtotal-based, already excludes tax
+        const shippingTotal = 0; // TODO: pull from orders when shipping costs are tracked
+        const salesTax = Math.round(totalSalesTax * 100) / 100;
+        const jatangoFee = grossSales * 0.055; // 5.5%
+        const processingFee = grossSales * 0.029 + orderCount * 0.3; // 2.9% + 30¢/order
+        const netSales =
+          grossSales - shippingTotal - jatangoFee - processingFee;
         res.json({
           show: {
             id: show.id,
@@ -159,7 +192,7 @@ export function registerShowRoutes(app: Express) {
             endedAt: show.ended_at,
           },
           summary: {
-            totalOrders: (orders || []).length,
+            totalOrders: orderCount,
             uniqueBuyers: uniqueBuyers.size,
             totalRevenue,
             totalItemsSold,
@@ -167,6 +200,16 @@ export function registerShowRoutes(app: Express) {
             addToCartEvents: addToCartCount,
             uniqueCartUsers,
             activeReservations: (activeReservations || []).length,
+          },
+          feesBreakdown: {
+            grossSales: Math.round(grossSales * 100) / 100,
+            shippingTotal: Math.round(shippingTotal * 100) / 100,
+            salesTax: Math.round(salesTax * 100) / 100,
+            jatangoFee: Math.round(jatangoFee * 100) / 100,
+            jatangoFeeRate: "5.5%",
+            processingFee: Math.round(processingFee * 100) / 100,
+            processingFeeRate: "2.9% + 30¢ per Order",
+            netSales: Math.round(netSales * 100) / 100,
           },
           productBreakdown,
           recentOrders: (orders || []).slice(0, 20).map((o: any) => ({

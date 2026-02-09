@@ -23,6 +23,7 @@ import {
   showSalesService,
   ShowSummaryData,
   ProductSalesItem,
+  FeesBreakdown,
 } from "@/services/showSales";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -130,7 +131,7 @@ export default function ShowSummaryScreen() {
     );
   }
 
-  const { show, summary, productBreakdown, recentOrders } = data;
+  const { show, summary, feesBreakdown, productBreakdown, recentOrders } = data;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
@@ -239,12 +240,15 @@ export default function ShowSummaryScreen() {
           </View>
         </View>
 
+        {/* Fees & Earnings */}
+        {summary.totalOrders > 0 && feesBreakdown && (
+          <FeesBreakdownSection fees={feesBreakdown} theme={theme} />
+        )}
+
         {/* Product Breakdown */}
         {productBreakdown.length > 0 && (
           <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>
-              Product Performance
-            </ThemedText>
+            <ThemedText style={styles.sectionTitle}>Products Sold</ThemedText>
             {productBreakdown.map((product) => (
               <ProductSalesCard
                 key={product.productId}
@@ -367,6 +371,108 @@ function MetricBox({
       <ThemedText style={[styles.metricLabel, { color: theme.textSecondary }]}>
         {label}
       </ThemedText>
+    </View>
+  );
+}
+
+function FeesBreakdownSection({
+  fees,
+  theme,
+}: {
+  fees: FeesBreakdown;
+  theme: any;
+}) {
+  const fmt = (n: number) => `$${n.toFixed(2)}`;
+  const neg = (n: number) => `-$${n.toFixed(2)}`;
+
+  return (
+    <View style={styles.section}>
+      <Card elevation={1} style={styles.feesCard}>
+        {/* Gross Sales */}
+        <View style={styles.feesRow}>
+          <ThemedText style={styles.feesLabel}>Gross Sales</ThemedText>
+          <ThemedText style={[styles.feesValue, { fontWeight: "800" }]}>
+            {fmt(fees.grossSales)}
+          </ThemedText>
+        </View>
+
+        {/* Shipping Total */}
+        <View style={styles.feesRow}>
+          <ThemedText
+            style={[styles.feesLabelSm, { color: theme.textSecondary }]}
+          >
+            Shipping Total
+          </ThemedText>
+          <ThemedText
+            style={[styles.feesDeduction, { color: theme.textSecondary }]}
+          >
+            {neg(fees.shippingTotal)}
+          </ThemedText>
+        </View>
+
+        {/* Sales Tax */}
+        <View style={styles.feesRow}>
+          <ThemedText
+            style={[styles.feesLabelSm, { color: theme.textSecondary }]}
+          >
+            Sales Tax
+          </ThemedText>
+          <ThemedText
+            style={[styles.feesDeduction, { color: theme.textSecondary }]}
+          >
+            {neg(fees.salesTax)}
+          </ThemedText>
+        </View>
+
+        {/* JaTango Fees */}
+        <View style={styles.feesRow}>
+          <ThemedText
+            style={[styles.feesLabelSm, { color: theme.textSecondary }]}
+          >
+            {`Jatango Fees (${fees.jatangoFeeRate})`}
+          </ThemedText>
+          <ThemedText
+            style={[styles.feesDeduction, { color: theme.textSecondary }]}
+          >
+            {neg(fees.jatangoFee)}
+          </ThemedText>
+        </View>
+
+        {/* Processing Fee */}
+        <View style={styles.feesRow}>
+          <ThemedText
+            style={[styles.feesLabelSm, { color: theme.textSecondary }]}
+          >
+            {`Processing Fee (${fees.processingFeeRate})`}
+          </ThemedText>
+          <ThemedText
+            style={[styles.feesDeduction, { color: theme.textSecondary }]}
+          >
+            {neg(fees.processingFee)}
+          </ThemedText>
+        </View>
+
+        <View style={[styles.feesDivider, { backgroundColor: theme.border }]} />
+
+        {/* Net Sales */}
+        <View
+          style={[
+            styles.netEarningsRow,
+            { backgroundColor: `${theme.primary}15` },
+          ]}
+        >
+          <ThemedText
+            style={[styles.commissionLabel, { color: theme.primary }]}
+          >
+            Net Sales
+          </ThemedText>
+          <ThemedText
+            style={[styles.netEarningsValue, { color: theme.primary }]}
+          >
+            {fmt(fees.netSales)}
+          </ThemedText>
+        </View>
+      </Card>
     </View>
   );
 }
@@ -589,6 +695,52 @@ const styles = StyleSheet.create({
   productRevenue: {
     fontSize: 16,
     fontWeight: "700",
+  },
+  feesCard: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+  },
+  feesRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: Spacing.xs,
+  },
+  feesLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  feesLabelSm: {
+    fontSize: 13,
+  },
+  feesValue: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  feesDeduction: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  feesDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginVertical: Spacing.xs,
+  },
+  netEarningsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    marginTop: Spacing.xs,
+  },
+  commissionLabel: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  netEarningsValue: {
+    fontSize: 18,
+    fontWeight: "800",
   },
   orderCard: {
     marginBottom: Spacing.sm,

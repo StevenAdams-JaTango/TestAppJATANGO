@@ -11,6 +11,7 @@ import { queryClient } from "@/lib/query-client";
 
 import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { linking } from "@/navigation/linking";
+import { navigationRef } from "@/navigation/navigationRef";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
@@ -28,7 +29,10 @@ export default function App() {
                 <SafeAreaProvider>
                   <GestureHandlerRootView style={styles.root}>
                     <KeyboardProvider>
-                      <NavigationContainer linking={linking}>
+                      <NavigationContainer
+                        ref={navigationRef}
+                        linking={linking}
+                      >
                         <RootStackNavigator />
                       </NavigationContainer>
                       <StatusBar style="auto" />

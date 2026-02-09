@@ -22,6 +22,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { showsService, ShowDraft } from "@/services/shows";
+import { showSalesService } from "@/services/showSales";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import type { ShowsStackParamList } from "@/navigation/ShowsStackNavigator";
 
@@ -42,6 +43,7 @@ export default function ShowsScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
   const [draftToDelete, setDraftToDelete] = useState<string | null>(null);
+  const [revenueMap, setRevenueMap] = useState<Record<string, number>>({});
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -52,6 +54,20 @@ export default function ShowsScreen() {
       ]);
       setUpcomingShows(upcoming);
       setPastShows(past);
+
+      // Fetch revenue for past shows
+      const revenues: Record<string, number> = {};
+      await Promise.all(
+        past.map(async (show) => {
+          try {
+            const summary = await showSalesService.fetchShowSummary(show.id);
+            revenues[show.id] = summary.summary.totalRevenue;
+          } catch {
+            revenues[show.id] = 0;
+          }
+        }),
+      );
+      setRevenueMap(revenues);
     } catch (error) {
       console.error("[ShowsScreen] Failed to load shows:", error);
     } finally {
@@ -184,6 +200,19 @@ export default function ShowsScreen() {
         <ThemedText style={[styles.endedDate, { color: theme.textSecondary }]}>
           {new Date(item.endedAt || item.updatedAt).toLocaleDateString()}
         </ThemedText>
+        {revenueMap[item.id] !== undefined && (
+          <ThemedText
+            style={[
+              styles.revenueText,
+              {
+                color:
+                  revenueMap[item.id] > 0 ? theme.primary : theme.textSecondary,
+              },
+            ]}
+          >
+            {`$${revenueMap[item.id].toFixed(2)} earned`}
+          </ThemedText>
+        )}
         <View style={styles.actions}>
           <Pressable
             style={[styles.actionBtn, { backgroundColor: theme.secondary }]}
@@ -191,18 +220,6 @@ export default function ShowsScreen() {
           >
             <Feather name="play" size={16} color="#fff" />
             <ThemedText style={styles.actionText}>View</ThemedText>
-          </Pressable>
-          <Pressable
-            style={[
-              styles.iconBtn,
-              {
-                backgroundColor: theme.backgroundSecondary,
-                borderColor: theme.border,
-              },
-            ]}
-            onPress={() => handleDelete(item.id)}
-          >
-            <Feather name="trash-2" size={16} color="#ef4444" />
           </Pressable>
         </View>
       </View>
@@ -535,6 +552,11 @@ const styles = StyleSheet.create({
   },
   endedDate: {
     fontSize: 12,
+    marginTop: 2,
+  },
+  revenueText: {
+    fontSize: 13,
+    fontWeight: "700",
     marginTop: 2,
   },
 });

@@ -201,7 +201,7 @@ export default function EndedShowScreen() {
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <ThemedText style={styles.statValue}>
-              ${(salesData?.summary.totalRevenue ?? 0).toFixed(0)}
+              ${(salesData?.summary.totalRevenue ?? 0).toFixed(2)}
             </ThemedText>
             <ThemedText
               style={[styles.statLabel, { color: theme.textSecondary }]}

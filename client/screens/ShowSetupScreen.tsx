@@ -214,7 +214,12 @@ export default function ShowSetupScreen() {
                 { backgroundColor: theme.backgroundSecondary },
               ]}
             >
-              <View style={styles.placeholderIconContainer}>
+              <View
+                style={[
+                  styles.placeholderIconContainer,
+                  { backgroundColor: theme.primary + "15" },
+                ]}
+              >
                 <Feather name="image" size={32} color={theme.primary} />
               </View>
               <ThemedText
@@ -267,7 +272,15 @@ export default function ShowSetupScreen() {
           />
         </View>
 
-        <View style={styles.tipsSection}>
+        <View
+          style={[
+            styles.tipsSection,
+            {
+              backgroundColor: theme.primary + "0D",
+              borderColor: theme.primary + "1A",
+            },
+          ]}
+        >
           <ThemedText
             style={[styles.tipsTitle, { color: theme.textSecondary }]}
           >
@@ -393,7 +406,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: "rgba(124, 58, 237, 0.1)",
+    backgroundColor: undefined,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.sm,
@@ -459,10 +472,8 @@ const styles = StyleSheet.create({
   tipsSection: {
     marginTop: Spacing.xl,
     padding: Spacing.md,
-    backgroundColor: "rgba(124, 58, 237, 0.05)",
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: "rgba(124, 58, 237, 0.1)",
   },
   tipsTitle: {
     fontSize: 12,

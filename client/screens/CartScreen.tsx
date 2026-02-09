@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Haptics from "expo-haptics";
 
@@ -28,6 +28,8 @@ export default function CartScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
+  const route = useRoute();
+  const isTab = route.name === "CartTab";
   const { cart, updateQuantity, removeItem, clearStoreCart, totalItems } =
     useCart();
 
@@ -333,12 +335,16 @@ export default function CartScreen() {
         ]}
       >
         <View style={styles.header}>
-          <Pressable
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Feather name="arrow-left" size={24} color={theme.text} />
-          </Pressable>
+          {!isTab ? (
+            <Pressable
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Feather name="arrow-left" size={24} color={theme.text} />
+            </Pressable>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
           <ThemedText style={styles.headerTitle}>Cart</ThemedText>
           <View style={styles.headerSpacer} />
         </View>
@@ -385,12 +391,16 @@ export default function CartScreen() {
       ]}
     >
       <View style={styles.header}>
-        <Pressable
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Feather name="arrow-left" size={24} color={theme.text} />
-        </Pressable>
+        {!isTab ? (
+          <Pressable
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Feather name="arrow-left" size={24} color={theme.text} />
+          </Pressable>
+        ) : (
+          <View style={styles.headerSpacer} />
+        )}
         <ThemedText style={styles.headerTitle}>
           MY CART ({totalItems})
         </ThemedText>

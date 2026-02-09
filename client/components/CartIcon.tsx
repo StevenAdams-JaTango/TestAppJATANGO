@@ -1,12 +1,12 @@
 import React from "react";
 import { View, StyleSheet, Pressable } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useCart } from "@/contexts/CartContext";
 import { useTheme } from "@/hooks/useTheme";
+import { navigationRef } from "@/navigation/navigationRef";
 
 interface CartIconProps {
   color?: string;
@@ -15,54 +15,27 @@ interface CartIconProps {
 
 export function CartIcon({ color, size = 24 }: CartIconProps) {
   const { theme } = useTheme();
-  const navigation = useNavigation();
   const { totalItems } = useCart();
 
   const handlePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-    // Try to navigate from current navigator first
     try {
-      (navigation as any).navigate("Cart");
-      return;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {
-      // If that fails, traverse up to find a navigator that has the Cart route
+      // Haptics not supported on this device
     }
-
-    // Traverse up the navigator tree
-    let currentNav: any = navigation;
-    const navigators: any[] = [currentNav];
-
-    // Collect all parent navigators
-    while (currentNav) {
-      const parent = currentNav.getParent();
-      if (parent) {
-        navigators.push(parent);
-        currentNav = parent;
-      } else {
-        break;
-      }
+    if (navigationRef.isReady()) {
+      navigationRef.navigate("Cart");
     }
-
-    // Try to navigate from each navigator, starting from the top (root)
-    for (let i = navigators.length - 1; i >= 0; i--) {
-      try {
-        navigators[i].navigate("Cart");
-        return;
-      } catch {
-        // This navigator doesn't have the Cart route, try the next one
-        continue;
-      }
-    }
-
-    // If all else fails, log an error
-    console.error("Could not navigate to Cart from any navigator");
   };
 
   const iconColor = color ?? theme.text;
 
   return (
-    <Pressable style={styles.container} onPress={handlePress}>
+    <Pressable
+      style={styles.container}
+      onPress={handlePress}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+    >
       <Feather name="shopping-cart" size={size} color={iconColor} />
       {totalItems > 0 && (
         <View style={[styles.badge, { backgroundColor: theme.primary }]}>

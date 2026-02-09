@@ -27,7 +27,7 @@ export function getApiUrl(): string {
       return normalized.replace(/192\.168\.\d+\.\d+/, "localhost");
     }
 
-    return new URL(normalized).href;
+    return new URL(normalized).href.replace(/\/$/, "");
   }
 
   // In development without explicit URL
@@ -55,10 +55,10 @@ export function getApiUrl(): string {
   }
 
   if (host.startsWith("http://") || host.startsWith("https://")) {
-    return new URL(host).href;
+    return new URL(host).href.replace(/\/$/, "");
   }
 
-  return new URL(`https://${host}`).href;
+  return new URL(`https://${host}`).href.replace(/\/$/, "");
 }
 
 async function throwIfResNotOk(res: Response) {

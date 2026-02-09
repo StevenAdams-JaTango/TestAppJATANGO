@@ -93,7 +93,11 @@ export function useLiveRooms(options: UseLiveRoomsOptions = {}) {
       );
 
       setRooms(parsedRooms);
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.name === "AbortError") {
+        // Expected when component unmounts or request times out
+        return;
+      }
       console.error("[useLiveRooms] Error fetching rooms:", err);
       setRooms([]);
       setError(null);

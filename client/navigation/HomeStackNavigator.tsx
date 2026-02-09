@@ -1,5 +1,4 @@
 import React from "react";
-import { View, StyleSheet } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import { HeaderButton } from "@react-navigation/elements";
@@ -7,11 +6,9 @@ import * as Haptics from "expo-haptics";
 
 import HomeScreen from "@/screens/HomeScreen";
 import StoreProfileScreen from "@/screens/StoreProfileScreen";
-import { CartIcon } from "@/components/CartIcon";
 import { HeaderTitle } from "@/components/HeaderTitle";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing } from "@/constants/theme";
 
 export type HomeStackParamList = {
   Home: undefined;
@@ -30,18 +27,16 @@ export default function HomeStackNavigator() {
         name="Home"
         component={HomeScreen}
         options={{
+          headerTransparent: false,
           headerTitle: () => <HeaderTitle title="JaTango" />,
           headerRight: () => (
-            <View style={styles.headerRight}>
-              <CartIcon />
-              <HeaderButton
-                onPress={() =>
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-                }
-              >
-                <Feather name="bell" size={22} color={theme.text} />
-              </HeaderButton>
-            </View>
+            <HeaderButton
+              onPress={() =>
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+              }
+            >
+              <Feather name="bell" size={22} color={theme.text} />
+            </HeaderButton>
           ),
         }}
       />
@@ -55,11 +50,3 @@ export default function HomeStackNavigator() {
     </Stack.Navigator>
   );
 }
-
-const styles = StyleSheet.create({
-  headerRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-});

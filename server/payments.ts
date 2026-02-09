@@ -99,6 +99,9 @@ async function getOrCreateStripeCustomer(
   return customer.id;
 }
 
+// Sales tax rate (8%) — adjust per jurisdiction as needed
+const SALES_TAX_RATE = 0.08;
+
 export function registerPaymentRoutes(app: Express) {
   /**
    * POST /api/checkout/create-payment-intent
@@ -132,11 +135,15 @@ export function registerPaymentRoutes(app: Express) {
           { apiVersion: "2026-01-28.clover" },
         );
 
-        // Calculate total server-side from the items
-        let totalAmount = 0;
+        // Calculate subtotal server-side from the items
+        let subtotal = 0;
         for (const item of items) {
-          totalAmount += item.unitPrice * item.quantity;
+          subtotal += item.unitPrice * item.quantity;
         }
+
+        // Calculate sales tax
+        const salesTax = Math.round(subtotal * SALES_TAX_RATE * 100) / 100;
+        const totalAmount = Math.round((subtotal + salesTax) * 100) / 100;
 
         // Stripe expects amount in cents
         const amountInCents = Math.round(totalAmount * 100);
@@ -155,11 +162,14 @@ export function registerPaymentRoutes(app: Express) {
           metadata: {
             userId,
             itemCount: items.length.toString(),
+            subtotal: subtotal.toFixed(2),
+            salesTax: salesTax.toFixed(2),
+            taxRate: SALES_TAX_RATE.toString(),
           },
         });
 
         console.log(
-          `[Payments] Created PaymentIntent ${paymentIntent.id} for $${totalAmount.toFixed(2)} (customer: ${customerId})`,
+          `[Payments] Created PaymentIntent ${paymentIntent.id} for $${totalAmount.toFixed(2)} (subtotal: $${subtotal.toFixed(2)}, tax: $${salesTax.toFixed(2)}, customer: ${customerId})`,
         );
 
         return res.json({
@@ -168,6 +178,9 @@ export function registerPaymentRoutes(app: Express) {
           ephemeralKey: ephemeralKey.secret,
           customerId,
           amount: totalAmount,
+          subtotal,
+          salesTax,
+          taxRate: SALES_TAX_RATE,
         });
       } catch (error: any) {
         console.error("[Payments] Error creating PaymentIntent:", error);
@@ -206,6 +219,12 @@ export function registerPaymentRoutes(app: Express) {
       }
 
       const totalAmount = paymentIntent.amount / 100;
+      const metaSubtotal = paymentIntent.metadata?.subtotal;
+      const metaTax = paymentIntent.metadata?.salesTax;
+      const metaRate = paymentIntent.metadata?.taxRate;
+      const subtotal = parseFloat(metaSubtotal || "0") || totalAmount;
+      const salesTax = parseFloat(metaTax || "0") || 0;
+      const taxRate = parseFloat(metaRate || "0") || 0;
 
       // Determine show_id if any items came from a live show
       const showId = items.find((i) => i.showId)?.showId || null;
@@ -218,6 +237,9 @@ export function registerPaymentRoutes(app: Express) {
           stripe_payment_intent_id: paymentIntentId,
           status: "paid",
           total_amount: totalAmount,
+          subtotal,
+          sales_tax: salesTax,
+          tax_rate: taxRate,
           currency: "usd",
           shipping_address: shippingAddress || null,
           show_id: showId,
@@ -332,11 +354,13 @@ export function registerPaymentRoutes(app: Express) {
 
         const customerId = await getOrCreateStripeCustomer(userId, email);
 
-        // Calculate total
-        let totalAmount = 0;
+        // Calculate subtotal + sales tax
+        let subtotal = 0;
         for (const item of items) {
-          totalAmount += item.unitPrice * item.quantity;
+          subtotal += item.unitPrice * item.quantity;
         }
+        const salesTax = Math.round(subtotal * SALES_TAX_RATE * 100) / 100;
+        const totalAmount = Math.round((subtotal + salesTax) * 100) / 100;
         const amountInCents = Math.round(totalAmount * 100);
 
         if (amountInCents < 50) {
@@ -356,6 +380,9 @@ export function registerPaymentRoutes(app: Express) {
           metadata: {
             userId,
             itemCount: items.length.toString(),
+            subtotal: subtotal.toFixed(2),
+            salesTax: salesTax.toFixed(2),
+            taxRate: SALES_TAX_RATE.toString(),
           },
         });
 
@@ -366,7 +393,7 @@ export function registerPaymentRoutes(app: Express) {
         }
 
         console.log(
-          `[Payments] Charged saved card ${paymentMethodId} for $${totalAmount.toFixed(2)} (PI: ${paymentIntent.id})`,
+          `[Payments] Charged saved card for $${totalAmount.toFixed(2)} (subtotal: $${subtotal.toFixed(2)}, tax: $${salesTax.toFixed(2)}, PI: ${paymentIntent.id})`,
         );
 
         // Determine show_id if any items came from a live show
@@ -380,6 +407,9 @@ export function registerPaymentRoutes(app: Express) {
             stripe_payment_intent_id: paymentIntent.id,
             status: "paid",
             total_amount: totalAmount,
+            subtotal,
+            sales_tax: salesTax,
+            tax_rate: SALES_TAX_RATE,
             currency: "usd",
             shipping_address: shippingAddress || null,
             show_id: savedCardShowId,

@@ -336,6 +336,15 @@ export default function ProfileScreen() {
             style={[styles.menuDivider, { backgroundColor: theme.border }]}
           />
           <MenuItem
+            icon="shopping-cart"
+            label="My Cart"
+            onPress={() => navigation.navigate("Cart")}
+            theme={theme}
+          />
+          <View
+            style={[styles.menuDivider, { backgroundColor: theme.border }]}
+          />
+          <MenuItem
             icon="package"
             label="My Products"
             onPress={() => navigation.navigate("Products")}

@@ -426,11 +426,29 @@ export default function BroadcasterScreen() {
   const confirmEndStream = async () => {
     setShowEndConfirm(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
+    if (!isLive) {
+      // Never went live — just go back, no need to end stream or update status
+      navigation.goBack();
+      return;
+    }
+
     // Use endStream to properly disconnect AND delete the room from LiveKit
     await streaming.endStream();
     // Mark show as ended so it moves to Past Shows
     if (draftId) {
-      await showsService.updateStatus(draftId, "ended");
+      const updated = await showsService.updateStatus(draftId, "ended");
+      console.log(
+        "[Broadcaster] updateStatus('ended') result:",
+        updated?.id,
+        updated?.status,
+      );
+      if (!updated) {
+        console.error(
+          "[Broadcaster] Failed to mark show as ended! draftId:",
+          draftId,
+        );
+      }
       // Navigate to show summary so host sees sales recap
       navigation.replace("ShowSummary", { showId: draftId });
     } else {
@@ -443,6 +461,13 @@ export default function BroadcasterScreen() {
   };
 
   const handleGoLive = async () => {
+    console.log("[BroadcasterScreen] handleGoLive called", {
+      isGoingLive,
+      isLive,
+      draftId,
+      showTitle: showTitle?.trim() || "(empty)",
+      hasThumbnail: !!thumbnailDataUri,
+    });
     if (isGoingLive || isLive) return;
 
     if (!draftId || !showTitle.trim() || !thumbnailDataUri) {
@@ -460,6 +485,22 @@ export default function BroadcasterScreen() {
       const thumbnailPath = thumbnailDataUri;
 
       await streaming.connect();
+
+      // Mark show as live in the database
+      if (draftId) {
+        const updated = await showsService.updateStatus(draftId, "live");
+        console.log(
+          "[Broadcaster] updateStatus('live') result:",
+          updated?.id,
+          updated?.status,
+        );
+        if (!updated) {
+          console.error(
+            "[Broadcaster] Failed to mark show as live in DB! draftId:",
+            draftId,
+          );
+        }
+      }
 
       await streamingService.updateRoomMetadata({
         roomName: roomNameRef.current,
@@ -804,10 +845,14 @@ export default function BroadcasterScreen() {
 
       <ConfirmDialog
         visible={showEndConfirm}
-        title="End Show?"
-        message="Are you sure you want to end this live show? This action cannot be undone."
-        confirmText="End Show"
-        cancelText="Keep Streaming"
+        title={isLive ? "End Show?" : "Leave?"}
+        message={
+          isLive
+            ? "Are you sure you want to end this live show? This action cannot be undone."
+            : "Are you sure you want to leave without going live?"
+        }
+        confirmText={isLive ? "End Show" : "Leave"}
+        cancelText={isLive ? "Keep Streaming" : "Stay"}
         confirmColor="#ef4444"
         onConfirm={confirmEndStream}
         onCancel={cancelEndStream}

@@ -49,7 +49,10 @@ Later:
 | `user_id` | UUID | Foreign key to `profiles.id` |
 | `stripe_payment_intent_id` | TEXT | Stripe PaymentIntent ID |
 | `status` | TEXT | Order status: `pending`, `paid`, `shipped`, `delivered`, `cancelled` |
-| `total_amount` | DECIMAL(10,2) | Total order amount |
+| `subtotal` | DECIMAL(10,2) | Item total before tax |
+| `sales_tax` | DECIMAL(10,2) | Sales tax amount (default 0) |
+| `tax_rate` | DECIMAL(5,4) | Tax rate applied (e.g. 0.0800 for 8%) |
+| `total_amount` | DECIMAL(10,2) | Grand total (subtotal + sales_tax) |
 | `currency` | TEXT | Currency code (default `usd`) |
 | `created_at` | TIMESTAMPTZ | When order was created |
 | `updated_at` | TIMESTAMPTZ | Last modification time |
@@ -339,12 +342,91 @@ Orders are **not** created by the client directly. They are created server-side 
 2. **Web flow:** Client calls `POST /api/checkout/pay-with-saved-card` → backend creates PaymentIntent, confirms it, creates order — all in one request
 
 Both paths:
-- Create an `orders` row with `status: "paid"`, Stripe PaymentIntent ID, and `shipping_address` JSONB snapshot
+- Calculate **subtotal** from item prices × quantities
+- Calculate **sales tax** at the configured rate (currently 8%)
+- Charge the buyer **subtotal + sales tax** via Stripe
+- Create an `orders` row with `status: "paid"`, `subtotal`, `sales_tax`, `tax_rate`, `total_amount`, Stripe PaymentIntent ID, and `shipping_address` JSONB snapshot
 - Create `order_items` rows with product snapshots (name, image, variant info, price)
 - Decrement `quantity_in_stock` on each product
 - Clear purchased items from the user's cart
 
 The shipping address is stored as a JSONB snapshot at time of purchase so it remains accurate even if the user later edits or deletes the address.
+
+---
+
+## Sales Tax
+
+### Current Implementation
+
+Sales tax is calculated **server-side** at a **flat 8% rate** applied to the item subtotal. The tax is:
+
+1. Computed on the server in both checkout endpoints (`create-payment-intent` and `pay-with-saved-card`)
+2. Added to the Stripe charge amount (buyer pays subtotal + tax)
+3. Stored in the PaymentIntent metadata (`subtotal`, `salesTax`, `taxRate`)
+4. Persisted in the `orders` table (`subtotal`, `sales_tax`, `tax_rate` columns)
+5. Displayed to the buyer in the checkout UI before they pay
+
+**Constant:** `SALES_TAX_RATE = 0.08` in `server/payments.ts`
+
+**Migration:** Run `supabase-sales-tax-migration.sql` to add the `subtotal`, `sales_tax`, and `tax_rate` columns.
+
+### Is This the Correct Way?
+
+**No — a flat rate is a simplified placeholder.** In the United States, sales tax varies by state, county, and city. Here's what matters:
+
+| Factor | Current | Correct |
+|--------|---------|---------|
+| Tax rate | Flat 8% everywhere | Varies by destination (0%–10.25%+) |
+| Tax nexus | Not considered | Seller must have nexus in buyer's state to collect |
+| Product taxability | All products taxed | Some categories are exempt (e.g. clothing in PA, groceries in many states) |
+| Tax-free states | Not handled | 5 states have no sales tax (OR, MT, NH, DE, AK) |
+
+### What Needs to Change for Production
+
+For a real marketplace, you should integrate a **tax calculation API** that handles jurisdiction-specific rates automatically. The recommended options are:
+
+1. **Stripe Tax** — Built into Stripe, easiest integration. Add `automatic_tax: { enabled: true }` to PaymentIntent creation. Stripe calculates the correct tax based on the buyer's shipping address. Requires Stripe Tax to be enabled in your Stripe dashboard.
+
+2. **TaxJar** — Dedicated sales tax API. Provides tax rates by address, handles filing and remittance. Good for marketplaces.
+
+3. **Avalara** — Enterprise-grade tax compliance. Handles US and international tax.
+
+### Recommended Migration Path (Stripe Tax)
+
+```typescript
+// In server/payments.ts — replace flat rate with Stripe Tax
+const paymentIntent = await stripe.paymentIntents.create({
+  amount: amountInCents,        // subtotal only — Stripe adds tax
+  currency: "usd",
+  customer: customerId,
+  automatic_tax: { enabled: true },  // <-- Stripe calculates tax
+  shipping: {                         // <-- needed for tax jurisdiction
+    name: shippingAddress.name,
+    address: {
+      line1: shippingAddress.addressLine1,
+      city: shippingAddress.city,
+      state: shippingAddress.state,
+      postal_code: shippingAddress.zip,
+      country: shippingAddress.country,
+    },
+  },
+});
+// After creation, read paymentIntent.automatic_tax.amount for the tax charged
+```
+
+### Key Requirements for Production Tax Compliance
+
+- [ ] **Use buyer's shipping address** to determine tax jurisdiction
+- [ ] **Integrate a tax API** (Stripe Tax, TaxJar, or Avalara) for accurate rates
+- [ ] **Handle tax-exempt states** (OR, MT, NH, DE, AK)
+- [ ] **Handle product-specific exemptions** if applicable
+- [ ] **Track tax nexus** — only collect tax in states where the seller has nexus
+- [ ] **File and remit taxes** — use TaxJar or Avalara for automated filing, or file manually per state
+- [ ] **Display tax clearly** to the buyer before payment (already done in our UI)
+
+### Show Summary Integration
+
+The show summary (`GET /api/shows/:showId/summary`) aggregates `sales_tax` from all orders placed during a show and displays it in the fees breakdown card. This gives sellers visibility into how much tax was collected.
 
 ---
 
@@ -354,6 +436,7 @@ The shipping address is stored as a JSONB snapshot at time of purchase so it rem
 
 1. Run `supabase-orders-migration.sql` in your Supabase SQL Editor to create the `orders` and `order_items` tables
 2. Run `supabase-orders-shipping-address-migration.sql` to add the `shipping_address` JSONB column to the `orders` table
+3. Run `supabase-sales-tax-migration.sql` to add the `subtotal`, `sales_tax`, and `tax_rate` columns to the `orders` table
 
 ### Testing
 

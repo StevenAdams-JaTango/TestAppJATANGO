@@ -21,6 +21,7 @@ import { LiveBadge } from "@/components/LiveBadge";
 import { ProductCarousel } from "@/components/ProductCarousel";
 import { ProductDetailSheet } from "@/components/ProductDetailSheet";
 import { CartBottomSheet } from "@/components/CartBottomSheet";
+import { CheckoutBottomSheet } from "@/components/CheckoutBottomSheet";
 import { LiveKitVideo } from "@/components/LiveKitVideo";
 import { useTheme } from "@/hooks/useTheme";
 import { BorderRadius, Spacing } from "@/constants/theme";
@@ -117,6 +118,8 @@ export default function LiveStreamScreen() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showProductSheet, setShowProductSheet] = useState(false);
   const [showCartSheet, setShowCartSheet] = useState(false);
+  const [checkoutSellerId, setCheckoutSellerId] = useState<string | null>(null);
+  const [showCheckoutSheet, setShowCheckoutSheet] = useState(false);
   const { totalItems } = useCart();
   const chatListRef = useRef<FlatList>(null);
   const chatInputRef = useRef<TextInput>(null);
@@ -477,7 +480,22 @@ export default function LiveStreamScreen() {
         visible={showCartSheet}
         onClose={() => setShowCartSheet(false)}
         onStoreCheckout={(sellerId) => {
-          navigation.navigate("Checkout", { sellerId });
+          setShowCartSheet(false);
+          setCheckoutSellerId(sellerId);
+          setShowCheckoutSheet(true);
+        }}
+      />
+
+      <CheckoutBottomSheet
+        visible={showCheckoutSheet}
+        sellerId={checkoutSellerId}
+        onClose={() => {
+          setShowCheckoutSheet(false);
+          setCheckoutSellerId(null);
+        }}
+        onSuccess={() => {
+          setShowCheckoutSheet(false);
+          setCheckoutSellerId(null);
         }}
       />
     </View>

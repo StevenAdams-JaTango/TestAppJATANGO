@@ -1,5 +1,16 @@
 import { getApiUrl } from "@/lib/query-client";
 
+export interface FeesBreakdown {
+  grossSales: number;
+  shippingTotal: number;
+  salesTax: number;
+  jatangoFee: number;
+  jatangoFeeRate: string;
+  processingFee: number;
+  processingFeeRate: string;
+  netSales: number;
+}
+
 export interface ShowSummaryData {
   show: {
     id: string;
@@ -19,6 +30,7 @@ export interface ShowSummaryData {
     uniqueCartUsers: number;
     activeReservations: number;
   };
+  feesBreakdown: FeesBreakdown;
   productBreakdown: ProductSalesItem[];
   recentOrders: RecentOrder[];
 }
@@ -50,16 +62,36 @@ export interface RecentOrder {
 export const showSalesService = {
   async fetchShowSummary(showId: string): Promise<ShowSummaryData> {
     const baseUrl = getApiUrl();
-    const res = await fetch(`${baseUrl}/api/shows/${showId}/summary`);
+    const url = `${baseUrl}/api/shows/${showId}/summary`;
+    console.log("[showSales] Fetching summary from:", url);
 
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(
-        body.error || `Failed to fetch show summary (${res.status})`,
+    try {
+      const res = await fetch(url);
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        console.error(
+          "[showSales] Summary fetch failed:",
+          res.status,
+          body,
+          "url:",
+          url,
+        );
+        throw new Error(
+          body.error || `Failed to fetch show summary (${res.status})`,
+        );
+      }
+
+      return res.json();
+    } catch (err: any) {
+      console.error(
+        "[showSales] Network error fetching summary:",
+        err.message,
+        "url:",
+        url,
       );
+      throw err;
     }
-
-    return res.json();
   },
 
   async cleanupReservations(showId: string): Promise<void> {

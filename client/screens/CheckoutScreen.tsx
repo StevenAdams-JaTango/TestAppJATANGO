@@ -59,6 +59,9 @@ export default function CheckoutScreen() {
   const [isLoadingData, setIsLoadingData] = useState(false);
 
   const storeTotal = store ? getStoreTotal(store) : 0;
+  const salesTaxRate = 0.08;
+  const salesTax = Math.round(storeTotal * salesTaxRate * 100) / 100;
+  const grandTotal = Math.round((storeTotal + salesTax) * 100) / 100;
   const totalItems = store
     ? store.items.reduce((sum, item) => sum + item.quantity, 0)
     : 0;
@@ -598,13 +601,23 @@ export default function CheckoutScreen() {
               Free
             </ThemedText>
           </View>
+          <View style={styles.totalRow}>
+            <ThemedText
+              style={[styles.totalLabel, { color: theme.textSecondary }]}
+            >
+              Sales Tax (8%)
+            </ThemedText>
+            <ThemedText style={styles.totalValue}>
+              ${salesTax.toFixed(2)}
+            </ThemedText>
+          </View>
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <View style={styles.totalRow}>
             <ThemedText style={styles.grandTotalLabel}>Total</ThemedText>
             <ThemedText
               style={[styles.grandTotalValue, { color: theme.primary }]}
             >
-              ${storeTotal.toFixed(2)}
+              ${grandTotal.toFixed(2)}
             </ThemedText>
           </View>
         </View>
@@ -644,7 +657,7 @@ export default function CheckoutScreen() {
             </View>
           ) : (
             <ThemedText style={styles.payButtonText}>
-              Pay ${storeTotal.toFixed(2)}
+              Pay ${grandTotal.toFixed(2)}
             </ThemedText>
           )}
         </Button>

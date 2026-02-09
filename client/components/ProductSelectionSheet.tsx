@@ -69,8 +69,10 @@ function ProductItem({ product, isSelected, onToggle }: ProductItemProps) {
       <View
         style={[
           styles.checkbox,
-          isSelected && { backgroundColor: theme.primary },
-          { borderColor: isSelected ? theme.primary : theme.border },
+          {
+            backgroundColor: isSelected ? theme.primary : theme.backgroundRoot,
+            borderColor: isSelected ? theme.primary : theme.border,
+          },
         ]}
       >
         {isSelected ? (
@@ -215,7 +217,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.9)",
+    backgroundColor: "transparent",
   },
   footer: {
     paddingHorizontal: Spacing.lg,

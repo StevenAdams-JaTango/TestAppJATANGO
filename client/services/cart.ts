@@ -81,27 +81,13 @@ class CartService {
         return this.cart;
       }
 
-      if (session?.user?.id) {
-        this.userId = session.user.id;
-      }
-
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser();
-
-      if (authError) {
-        console.error("[CartService] Auth error:", authError);
+      if (!session?.user?.id) {
+        console.log("[CartService] No session, returning empty cart");
         return this.cart;
       }
 
-      if (!user) {
-        console.log("[CartService] No user logged in, returning empty cart");
-        return this.cart;
-      }
-
-      console.log("[CartService] User found:", user.id);
-      this.userId = user.id;
+      this.userId = session.user.id;
+      console.log("[CartService] User found:", this.userId);
       await this.loadFromDb();
       console.log(
         "[CartService] Cart loaded with",

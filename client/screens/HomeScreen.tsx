@@ -4,6 +4,7 @@ import {
   View,
   StyleSheet,
   Pressable,
+  TouchableOpacity,
   Image,
   RefreshControl,
   Dimensions,
@@ -19,12 +20,13 @@ import {
 } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { LivePreview } from "@/components/LivePreview";
-import { CartIcon } from "@/components/CartIcon";
+import { navigationRef } from "@/navigation/navigationRef";
+import { useCart } from "@/contexts/CartContext";
 import { useLiveRooms } from "@/hooks/useLiveRooms";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Shadows } from "@/constants/theme";
@@ -53,6 +55,7 @@ export default function HomeScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const isFocused = useIsFocused();
+  const { totalItems } = useCart();
   const [refreshing, setRefreshing] = useState(false);
   const [stores, setStores] = useState<Store[]>([]);
   const { rooms: liveRooms, refetch: refetchRooms } = useLiveRooms({
@@ -114,26 +117,20 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
-      {/* Header */}
-      <Animated.View
-        entering={FadeIn.duration(400)}
-        style={[styles.header, { paddingTop: insets.top + Spacing.lg }]}
-      >
-        <View style={styles.headerLeft}>
-          <ThemedText style={[styles.headerTitle, { color: theme.secondary }]}>
-            Live Now
-          </ThemedText>
-          {hasLiveStreams && (
-            <View style={styles.liveCountBadge}>
-              <View style={styles.liveDot} />
-              <ThemedText style={styles.liveCountText}>
-                {liveRooms.length}
-              </ThemedText>
-            </View>
-          )}
-        </View>
-        <CartIcon />
-      </Animated.View>
+      {/* Section Header */}
+      <View style={styles.sectionHeader}>
+        <ThemedText style={[styles.sectionTitle, { color: theme.secondary }]}>
+          Live Now
+        </ThemedText>
+        {hasLiveStreams && (
+          <View style={styles.liveCountBadge}>
+            <View style={styles.liveDot} />
+            <ThemedText style={styles.liveCountText}>
+              {liveRooms.length}
+            </ThemedText>
+          </View>
+        )}
+      </View>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={{
@@ -264,7 +261,7 @@ export default function HomeScreen() {
           >
             <ThemedText
               style={[
-                styles.sectionTitle,
+                styles.storesSectionTitle,
                 { paddingHorizontal: Spacing.lg, color: theme.text },
               ]}
             >
@@ -328,6 +325,38 @@ export default function HomeScreen() {
           </Animated.View>
         )}
       </ScrollView>
+
+      {/* Floating Cart Button */}
+      <TouchableOpacity
+        onPress={() => {
+          try {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          } catch {
+            // Haptics not supported
+          }
+          if (navigationRef.isReady()) {
+            navigationRef.navigate("Cart");
+          }
+        }}
+        activeOpacity={0.8}
+        style={[
+          styles.cartFab,
+          {
+            backgroundColor: theme.primary,
+            bottom: tabBarHeight + Spacing.md,
+            ...Shadows.md,
+          },
+        ]}
+      >
+        <Feather name="shopping-cart" size={22} color="#fff" />
+        {totalItems > 0 && (
+          <View style={styles.cartFabBadge}>
+            <ThemedText style={styles.cartFabBadgeText}>
+              {totalItems > 99 ? "99+" : totalItems}
+            </ThemedText>
+          </View>
+        )}
+      </TouchableOpacity>
     </View>
   );
 }
@@ -339,23 +368,18 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.md,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: "800",
-    letterSpacing: -0.5,
-  },
-  headerLeft: {
+  sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    letterSpacing: -0.3,
   },
   liveCountBadge: {
     flexDirection: "row",
@@ -511,7 +535,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
-  sectionTitle: {
+  storesSectionTitle: {
     fontSize: 18,
     fontWeight: "700",
     marginBottom: Spacing.md,
@@ -553,5 +577,39 @@ const styles = StyleSheet.create({
   storeProductCount: {
     fontSize: 11,
     textAlign: "center",
+  },
+  cartFab: {
+    position: "absolute",
+    right: Spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 100,
+    elevation: 8,
+  },
+  cartFabBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "#ef4444",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
+  cartFabBadgeText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "800",
+    lineHeight: 14,
+    textAlign: "center",
+    includeFontPadding: false,
+    textAlignVertical: "center",
   },
 });

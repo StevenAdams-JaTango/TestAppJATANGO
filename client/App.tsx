@@ -13,24 +13,33 @@ import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { linking } from "@/navigation/linking";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { CartProvider } from "@/contexts/CartContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
+import { StripeProviderWrapper } from "@/components/StripeProviderWrapper";
 
 export default function App() {
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <SafeAreaProvider>
-            <GestureHandlerRootView style={styles.root}>
-              <KeyboardProvider>
-                <NavigationContainer linking={linking}>
-                  <RootStackNavigator />
-                </NavigationContainer>
-                <StatusBar style="auto" />
-              </KeyboardProvider>
-            </GestureHandlerRootView>
-          </SafeAreaProvider>
-        </AuthProvider>
-      </QueryClientProvider>
+      <ThemeProvider>
+        <StripeProviderWrapper>
+          <QueryClientProvider client={queryClient}>
+            <AuthProvider>
+              <CartProvider>
+                <SafeAreaProvider>
+                  <GestureHandlerRootView style={styles.root}>
+                    <KeyboardProvider>
+                      <NavigationContainer linking={linking}>
+                        <RootStackNavigator />
+                      </NavigationContainer>
+                      <StatusBar style="auto" />
+                    </KeyboardProvider>
+                  </GestureHandlerRootView>
+                </SafeAreaProvider>
+              </CartProvider>
+            </AuthProvider>
+          </QueryClientProvider>
+        </StripeProviderWrapper>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

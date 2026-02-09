@@ -10,22 +10,18 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { ProductCarousel } from "@/components/ProductCarousel";
 import { ProductDetailSheet } from "@/components/ProductDetailSheet";
+import { CartBottomSheet } from "@/components/CartBottomSheet";
 import { useTheme } from "@/hooks/useTheme";
-import { Colors, BorderRadius, Spacing, Shadows } from "@/constants/theme";
+import { useCart } from "@/contexts/CartContext";
+import { BorderRadius, Spacing, Shadows } from "@/constants/theme";
 import { showsService, ShowDraft } from "@/services/shows";
+import { showSalesService, ShowSummaryData } from "@/services/showSales";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { Product } from "@/types";
-import { mockSellerProducts } from "@/data/mockData";
+import { productsService } from "@/services/products";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<{ EndedShow: { showId: string } }, "EndedShow">;
-
-interface ChatMessage {
-  id: string;
-  userName: string;
-  message: string;
-  timestamp: number;
-}
 
 export default function EndedShowScreen() {
   const { theme } = useTheme();
@@ -36,40 +32,12 @@ export default function EndedShowScreen() {
 
   const [show, setShow] = useState<ShowDraft | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [salesData, setSalesData] = useState<ShowSummaryData | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showProductSheet, setShowProductSheet] = useState(false);
-
-  // Mock data for demo - in production these would be stored with the show
-  const [chatMessages] = useState<ChatMessage[]>([
-    {
-      id: "1",
-      userName: "HappyPanda42",
-      message: "Great show!",
-      timestamp: Date.now() - 3600000,
-    },
-    {
-      id: "2",
-      userName: "SwiftTiger99",
-      message: "Love this product!",
-      timestamp: Date.now() - 3500000,
-    },
-    {
-      id: "3",
-      userName: "BrightEagle35",
-      message: "When will you stream again?",
-      timestamp: Date.now() - 3400000,
-    },
-    {
-      id: "4",
-      userName: "CoolFox77",
-      message: "Thanks for the demo!",
-      timestamp: Date.now() - 3300000,
-    },
-  ]);
-
-  const [carouselProducts] = useState<Product[]>(
-    mockSellerProducts.slice(0, 3),
-  );
+  const [showCartSheet, setShowCartSheet] = useState(false);
+  const { totalItems } = useCart();
+  const [carouselProducts, setCarouselProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     loadShow();
@@ -79,8 +47,20 @@ export default function EndedShowScreen() {
   const loadShow = async () => {
     setIsLoading(true);
     try {
-      const draft = await showsService.getDraft(showId);
+      const [draft, summary] = await Promise.all([
+        showsService.getDraft(showId),
+        showSalesService.fetchShowSummary(showId).catch(() => null),
+      ]);
       setShow(draft);
+      setSalesData(summary);
+
+      // Load real products from the show
+      if (draft?.productIds && draft.productIds.length > 0) {
+        const products = await Promise.all(
+          draft.productIds.map((pid) => productsService.getProduct(pid)),
+        );
+        setCarouselProducts(products.filter((p): p is Product => p !== null));
+      }
     } catch (error) {
       console.error("Failed to load show:", error);
     } finally {
@@ -102,16 +82,6 @@ export default function EndedShowScreen() {
   const handleCloseProductSheet = () => {
     setShowProductSheet(false);
     setSelectedProduct(null);
-  };
-
-  const handleAddToCart = (product: Product) => {
-    console.log("Add to cart:", product.id);
-    handleCloseProductSheet();
-  };
-
-  const handleBuyNow = (product: Product) => {
-    console.log("Buy now:", product.id);
-    handleCloseProductSheet();
   };
 
   const formatDate = (timestamp: number) => {
@@ -167,6 +137,22 @@ export default function EndedShowScreen() {
             <Pressable onPress={handleBack} style={styles.backButton}>
               <Feather name="arrow-left" size={24} color="#fff" />
             </Pressable>
+            <Pressable
+              style={styles.cartButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowCartSheet(true);
+              }}
+            >
+              <Feather name="shopping-cart" size={20} color="#fff" />
+              {totalItems > 0 && (
+                <View style={styles.cartBadge}>
+                  <ThemedText style={styles.cartBadgeText}>
+                    {totalItems > 99 ? "99+" : totalItems}
+                  </ThemedText>
+                </View>
+              )}
+            </Pressable>
           </View>
           <View style={styles.thumbnailInfo}>
             <View style={styles.endedBadge}>
@@ -203,33 +189,35 @@ export default function EndedShowScreen() {
           ]}
         >
           <View style={styles.statItem}>
-            <ThemedText style={styles.statValue}>127</ThemedText>
+            <ThemedText style={styles.statValue}>
+              {salesData?.summary.totalOrders ?? 0}
+            </ThemedText>
             <ThemedText
               style={[styles.statLabel, { color: theme.textSecondary }]}
             >
-              Views
+              Orders
             </ThemedText>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <ThemedText style={styles.statValue}>
-              {chatMessages.length}
+              ${(salesData?.summary.totalRevenue ?? 0).toFixed(0)}
             </ThemedText>
             <ThemedText
               style={[styles.statLabel, { color: theme.textSecondary }]}
             >
-              Messages
+              Revenue
             </ThemedText>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <ThemedText style={styles.statValue}>
-              {carouselProducts.length}
+              {salesData?.summary.totalItemsSold ?? 0}
             </ThemedText>
             <ThemedText
               style={[styles.statLabel, { color: theme.textSecondary }]}
             >
-              Products
+              Items Sold
             </ThemedText>
           </View>
         </View>
@@ -248,30 +236,6 @@ export default function EndedShowScreen() {
           </View>
         )}
 
-        {/* Chat History Section */}
-        <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>Chat Highlights</ThemedText>
-          <View
-            style={[
-              styles.chatContainer,
-              { backgroundColor: theme.backgroundDefault },
-            ]}
-          >
-            {chatMessages.map((msg) => (
-              <View key={msg.id} style={styles.chatMessage}>
-                <ThemedText style={styles.chatUserName}>
-                  {msg.userName}
-                </ThemedText>
-                <ThemedText
-                  style={[styles.chatText, { color: theme.textSecondary }]}
-                >
-                  {msg.message}
-                </ThemedText>
-              </View>
-            ))}
-          </View>
-        </View>
-
         {/* Actions */}
         <View
           style={[
@@ -280,18 +244,15 @@ export default function EndedShowScreen() {
           ]}
         >
           <Pressable
-            style={[
-              styles.actionButton,
-              { backgroundColor: Colors.light.primary },
-            ]}
+            style={[styles.actionButton, { backgroundColor: theme.primary }]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              // Could navigate to create new show with same settings
+              navigation.navigate("ShowSummary", { showId });
             }}
           >
-            <Feather name="repeat" size={18} color="#fff" />
+            <Feather name="bar-chart-2" size={18} color="#fff" />
             <ThemedText style={styles.actionButtonText}>
-              Go Live Again
+              View Sales Summary
             </ThemedText>
           </Pressable>
           <Pressable
@@ -302,14 +263,13 @@ export default function EndedShowScreen() {
             ]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              // Share functionality
             }}
           >
-            <Feather name="share" size={18} color={theme.text} />
+            <Feather name="repeat" size={18} color={theme.text} />
             <ThemedText
               style={[styles.actionButtonText, { color: theme.text }]}
             >
-              Share Recap
+              Go Live Again
             </ThemedText>
           </Pressable>
         </View>
@@ -319,8 +279,15 @@ export default function EndedShowScreen() {
         product={selectedProduct}
         visible={showProductSheet}
         onClose={handleCloseProductSheet}
-        onAddToCart={handleAddToCart}
-        onBuyNow={handleBuyNow}
+      />
+
+      <CartBottomSheet
+        visible={showCartSheet}
+        onClose={() => setShowCartSheet(false)}
+        onCheckout={() => {
+          setShowCartSheet(false);
+          navigation.navigate("Cart");
+        }}
       />
     </View>
   );
@@ -361,6 +328,9 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     padding: Spacing.md,
   },
   backButton: {
@@ -370,6 +340,30 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.4)",
     alignItems: "center",
     justifyContent: "center",
+  },
+  cartButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cartBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+  cartBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "700",
   },
   thumbnailInfo: {
     position: "absolute",
@@ -419,6 +413,7 @@ const styles = StyleSheet.create({
     marginTop: -Spacing.xl,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
+    zIndex: 10,
     ...Shadows.md,
   },
   statItem: {
@@ -428,7 +423,6 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 24,
     fontWeight: "800",
-    color: Colors.light.primary,
   },
   statLabel: {
     fontSize: 12,
@@ -462,7 +456,6 @@ const styles = StyleSheet.create({
   chatUserName: {
     fontSize: 13,
     fontWeight: "700",
-    color: Colors.light.primary,
   },
   chatText: {
     fontSize: 13,

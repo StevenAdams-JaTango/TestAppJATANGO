@@ -9,7 +9,7 @@ import Animated, {
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Colors, BorderRadius, Spacing, Shadows } from "@/constants/theme";
+import { BorderRadius, Spacing, Shadows } from "@/constants/theme";
 import { Order } from "@/types";
 
 interface OrderCardProps {
@@ -19,31 +19,52 @@ interface OrderCardProps {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-const getStatusColor = (status: Order["status"]) => {
+const getStatusColor = (
+  status: Order["status"],
+  theme: Record<string, string>,
+) => {
   switch (status) {
     case "delivered":
-      return Colors.light.success;
+      return theme.success;
+    case "paid":
     case "shipped":
-      return Colors.light.secondary;
+      return theme.secondary;
     case "pending":
-      return Colors.light.textSecondary;
+      return theme.textSecondary;
+    case "cancelled":
+      return "#ef4444";
     default:
-      return Colors.light.textSecondary;
+      return theme.textSecondary;
   }
 };
 
-const getStatusIcon = (status: Order["status"]): keyof typeof Feather.glyphMap => {
+const getStatusIcon = (
+  status: Order["status"],
+): keyof typeof Feather.glyphMap => {
   switch (status) {
     case "delivered":
       return "check-circle";
     case "shipped":
       return "truck";
+    case "paid":
+      return "credit-card";
+    case "cancelled":
+      return "x-circle";
     case "pending":
       return "clock";
     default:
       return "clock";
   }
 };
+
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
 export function OrderCard({ order, onPress }: OrderCardProps) {
   const { theme } = useTheme();
@@ -61,8 +82,17 @@ export function OrderCard({ order, onPress }: OrderCardProps) {
     scale.value = withSpring(1, { damping: 15, stiffness: 150 });
   };
 
-  const statusColor = getStatusColor(order.status);
+  const statusColor = getStatusColor(order.status, theme);
   const statusIcon = getStatusIcon(order.status);
+
+  // Use first item's image as the order thumbnail
+  const firstItem = order.items[0];
+  const thumbnailUri = firstItem?.productImage;
+  const itemCount = order.items.reduce((sum, i) => sum + i.quantity, 0);
+  const displayName =
+    order.items.length === 1
+      ? firstItem?.productName
+      : `${firstItem?.productName} +${order.items.length - 1} more`;
 
   return (
     <AnimatedPressable
@@ -76,17 +106,35 @@ export function OrderCard({ order, onPress }: OrderCardProps) {
       ]}
       testID={`order-card-${order.id}`}
     >
-      <Image
-        source={{ uri: order.productImage }}
-        style={styles.image}
-        resizeMode="cover"
-      />
+      {thumbnailUri ? (
+        <Image
+          source={{ uri: thumbnailUri }}
+          style={styles.image}
+          resizeMode="cover"
+        />
+      ) : (
+        <View
+          style={[
+            styles.image,
+            styles.imagePlaceholder,
+            { backgroundColor: theme.backgroundSecondary },
+          ]}
+        >
+          <Feather name="package" size={28} color={theme.textSecondary} />
+        </View>
+      )}
       <View style={styles.info}>
         <ThemedText style={styles.name} numberOfLines={2}>
-          {order.productName}
+          {displayName}
         </ThemedText>
         <ThemedText style={[styles.price, { color: theme.primary }]}>
-          ${order.price.toFixed(2)}
+          ${order.totalAmount.toFixed(2)}
+          <ThemedText
+            style={[styles.itemCount, { color: theme.textSecondary }]}
+          >
+            {" "}
+            · {itemCount} item{itemCount !== 1 ? "s" : ""}
+          </ThemedText>
         </ThemedText>
         <View style={styles.statusRow}>
           <Feather name={statusIcon} size={14} color={statusColor} />
@@ -94,7 +142,7 @@ export function OrderCard({ order, onPress }: OrderCardProps) {
             {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
           </ThemedText>
           <ThemedText style={[styles.date, { color: theme.textSecondary }]}>
-            {order.date}
+            {formatDate(order.createdAt)}
           </ThemedText>
         </View>
       </View>
@@ -143,5 +191,13 @@ const styles = StyleSheet.create({
   date: {
     fontSize: 12,
     marginLeft: "auto",
+  },
+  imagePlaceholder: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  itemCount: {
+    fontSize: 12,
+    fontWeight: "400",
   },
 });

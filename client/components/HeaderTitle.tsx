@@ -2,19 +2,20 @@ import React from "react";
 import { View, StyleSheet } from "react-native";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Colors } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 interface HeaderTitleProps {
   title: string;
 }
 
 export function HeaderTitle({ title }: HeaderTitleProps) {
+  const { theme } = useTheme();
   return (
     <View style={styles.container}>
-      <ThemedText style={[styles.title, { color: Colors.light.secondary }]}>
+      <ThemedText style={[styles.title, { color: theme.secondary }]}>
         Jatango
       </ThemedText>
-      <ThemedText style={[styles.subtitle, { color: Colors.light.primary }]}>
+      <ThemedText style={[styles.subtitle, { color: theme.primary }]}>
         LIVE SHOPPING
       </ThemedText>
     </View>

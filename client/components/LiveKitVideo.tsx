@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
-import { View, StyleSheet, Platform } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { View, StyleSheet, Platform, useWindowDimensions } from "react-native";
 import {
   Room,
   RoomEvent,
@@ -29,8 +29,38 @@ interface LiveKitVideoProps {
 export function LiveKitVideo({ room, style }: LiveKitVideoProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [videoTrack, setVideoTrack] = useState<RemoteVideoTrack | null>(null);
+  const audioElementsRef = useRef<HTMLMediaElement[]>([]);
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
-  // Handle native video track subscription
+  const isDesktopWeb =
+    Platform.OS === "web" && windowWidth >= 768 && windowWidth > windowHeight;
+
+  const portraitStage = useMemo(() => {
+    const targetAspect = 9 / 16;
+    const viewportW = windowWidth;
+    const viewportH = windowHeight;
+
+    if (!isDesktopWeb) {
+      return { width: "100%", height: "100%" } as const;
+    }
+
+    const viewportAspect = viewportW / viewportH;
+    if (viewportAspect > targetAspect) {
+      // Wide viewport (desktop): constrain by height
+      return {
+        width: viewportH * targetAspect,
+        height: viewportH,
+      } as const;
+    }
+
+    // Narrow viewport: constrain by width
+    return {
+      width: viewportW,
+      height: viewportW / targetAspect,
+    } as const;
+  }, [isDesktopWeb, windowHeight, windowWidth]);
+
+  // Handle native video + audio track subscription
   useEffect(() => {
     if (Platform.OS === "web" || !room) return;
 
@@ -43,6 +73,11 @@ export function LiveKitVideo({ room, style }: LiveKitVideoProps) {
             console.log("[LiveKitVideo] Native: Found video track");
             setVideoTrack(pub.track as RemoteVideoTrack);
           }
+          if (pub.track && pub.track.kind === Track.Kind.Audio) {
+            console.log(
+              "[LiveKitVideo] Native: Found audio track (auto-played)",
+            );
+          }
         });
       });
     };
@@ -51,8 +86,13 @@ export function LiveKitVideo({ room, style }: LiveKitVideoProps) {
 
     const handleTrackSubscribed = (track: RemoteTrack) => {
       if (track.kind === Track.Kind.Video) {
-        console.log("[LiveKitVideo] Native: Track subscribed");
+        console.log("[LiveKitVideo] Native: Video track subscribed");
         setVideoTrack(track as RemoteVideoTrack);
+      }
+      if (track.kind === Track.Kind.Audio) {
+        console.log(
+          "[LiveKitVideo] Native: Audio track subscribed (auto-played)",
+        );
       }
     };
 
@@ -83,29 +123,47 @@ export function LiveKitVideo({ room, style }: LiveKitVideoProps) {
       room.remoteParticipants.size,
     );
 
-    const attachVideo = (track: RemoteTrack) => {
+    const requestHighQuality = () => {
+      room.remoteParticipants.forEach((participant) => {
+        participant.trackPublications.forEach((pub: any) => {
+          if (pub?.kind !== Track.Kind.Video) return;
+          if (typeof pub.setVideoQuality === "function") {
+            pub.setVideoQuality(VideoQuality.HIGH);
+          }
+        });
+      });
+    };
+
+    const attachTrack = (track: RemoteTrack) => {
       console.log("[LiveKitVideo] Attempting to attach track:", track.kind);
       if (track.kind === Track.Kind.Video && videoRef.current) {
         console.log("[LiveKitVideo] Attaching video track to element");
         track.attach(videoRef.current);
-        // Request highest quality layer immediately via track publication
-        room.remoteParticipants.forEach((participant) => {
-          participant.trackPublications.forEach((pub) => {
-            if (pub.track === track && pub.videoTrack) {
-              pub.setVideoQuality(VideoQuality.HIGH);
-            }
-          });
+        requestHighQuality();
+      }
+      if (track.kind === Track.Kind.Audio) {
+        console.log("[LiveKitVideo] Attaching audio track");
+        const audioEl = track.attach();
+        audioEl.volume = 1.0;
+        audioElementsRef.current.push(audioEl);
+      }
+    };
+
+    const detachTrack = (track: RemoteTrack) => {
+      if (track.kind === Track.Kind.Video) {
+        track.detach();
+      }
+      if (track.kind === Track.Kind.Audio) {
+        const detached = track.detach();
+        detached.forEach((el) => {
+          const idx = audioElementsRef.current.indexOf(el);
+          if (idx >= 0) audioElementsRef.current.splice(idx, 1);
         });
       }
     };
 
-    const detachVideo = (track: RemoteTrack) => {
-      if (track.kind === Track.Kind.Video) {
-        track.detach();
-      }
-    };
-
-    // Attach existing tracks
+    // Attach existing tracks (both video and audio)
+    requestHighQuality();
     room.remoteParticipants.forEach((participant) => {
       console.log("[LiveKitVideo] Participant:", participant.identity);
       console.log(
@@ -119,21 +177,26 @@ export function LiveKitVideo({ room, style }: LiveKitVideoProps) {
           "subscribed:",
           pub.isSubscribed,
         );
-        if (pub.track && pub.track.kind === Track.Kind.Video) {
-          attachVideo(pub.track as RemoteTrack);
+        if (pub.track) {
+          attachTrack(pub.track as RemoteTrack);
         }
       });
     });
 
+    // Some browsers/joins start in a lower layer; retry briefly to lock in HIGH.
+    const retryInterval = setInterval(requestHighQuality, 750);
+    const retryTimeout = setTimeout(() => clearInterval(retryInterval), 6000);
+
     // Listen for new tracks
     const handleTrackSubscribed = (track: RemoteTrack) => {
       console.log("[LiveKitVideo] Track subscribed:", track.kind);
-      attachVideo(track);
+      attachTrack(track);
+      requestHighQuality();
     };
 
     const handleTrackUnsubscribed = (track: RemoteTrack) => {
       console.log("[LiveKitVideo] Track unsubscribed:", track.kind);
-      detachVideo(track);
+      detachTrack(track);
     };
 
     // Also listen for participant connected
@@ -141,10 +204,11 @@ export function LiveKitVideo({ room, style }: LiveKitVideoProps) {
       console.log(
         "[LiveKitVideo] Participant connected, re-checking tracks...",
       );
+      requestHighQuality();
       room.remoteParticipants.forEach((participant) => {
         participant.trackPublications.forEach((pub) => {
-          if (pub.track && pub.track.kind === Track.Kind.Video) {
-            attachVideo(pub.track as RemoteTrack);
+          if (pub.track) {
+            attachTrack(pub.track as RemoteTrack);
           }
         });
       });
@@ -155,9 +219,17 @@ export function LiveKitVideo({ room, style }: LiveKitVideoProps) {
     room.on(RoomEvent.ParticipantConnected, handleParticipantConnected);
 
     return () => {
+      clearInterval(retryInterval);
+      clearTimeout(retryTimeout);
       room.off(RoomEvent.TrackSubscribed, handleTrackSubscribed);
       room.off(RoomEvent.TrackUnsubscribed, handleTrackUnsubscribed);
       room.off(RoomEvent.ParticipantConnected, handleParticipantConnected);
+      // Clean up audio elements
+      audioElementsRef.current.forEach((el) => {
+        el.pause();
+        el.srcObject = null;
+      });
+      audioElementsRef.current = [];
     };
   }, [room]);
 
@@ -207,25 +279,35 @@ export function LiveKitVideo({ room, style }: LiveKitVideoProps) {
           justifyContent: "center",
         }}
       >
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted={false}
-          style={
-            {
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              imageRendering: "crisp-edges",
-              WebkitBackfaceVisibility: "hidden",
-              backfaceVisibility: "hidden",
-              transform: "translateZ(0)",
-              willChange: "transform",
-              filter: "contrast(1.05) saturate(1.1)",
-            } as React.CSSProperties
-          }
-        />
+        <div
+          style={{
+            width: portraitStage.width,
+            height: portraitStage.height,
+            backgroundColor: "#000",
+            overflow: "hidden",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted={false}
+            style={
+              {
+                width: "100%",
+                height: "100%",
+                objectFit: isDesktopWeb ? "contain" : "cover",
+                WebkitBackfaceVisibility: "hidden",
+                backfaceVisibility: "hidden",
+                transform: "translateZ(0)",
+                willChange: "transform",
+              } as React.CSSProperties
+            }
+          />
+        </div>
       </div>
     </View>
   );

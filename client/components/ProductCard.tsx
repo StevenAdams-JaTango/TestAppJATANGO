@@ -5,7 +5,7 @@ import Animated, { FadeInUp, FadeInDown } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { BorderRadius, Spacing, Shadows, Colors } from "@/constants/theme";
+import { BorderRadius, Spacing, Shadows } from "@/constants/theme";
 import { Product } from "@/types";
 
 interface ProductCardProps {
@@ -39,6 +39,72 @@ export function ProductCard({
   const hasVariants = activeVariants.length > 0;
   const isGrid = variant === "grid";
 
+  // Standard stock calculation: variants > colors/sizes > product-level
+  const getStockInfo = (): {
+    total: number | undefined;
+    label: string;
+    color: string;
+    dotColor: string;
+  } => {
+    let total: number | undefined;
+
+    if (hasVariants) {
+      // Sum stock across all active variant combinations
+      const variantStocks = activeVariants
+        .map((v) => v.stockQuantity)
+        .filter((q): q is number => q !== undefined);
+      if (variantStocks.length > 0) {
+        total = variantStocks.reduce((sum, q) => sum + q, 0);
+      }
+    } else if (hasColors || hasSizes) {
+      // Sum stock across color/size variants
+      const colorStocks = activeColors
+        .map((c) => c.stockQuantity)
+        .filter((q): q is number => q !== undefined);
+      const sizeStocks = activeSizes
+        .map((s) => s.stockQuantity)
+        .filter((q): q is number => q !== undefined);
+      const allStocks = [...colorStocks, ...sizeStocks];
+      if (allStocks.length > 0) {
+        total = allStocks.reduce((sum, q) => sum + q, 0);
+      }
+    }
+
+    // Fall back to product-level stock
+    if (total === undefined) {
+      total = product.quantityInStock;
+    }
+
+    if (total === undefined) {
+      return { total: undefined, label: "", color: "", dotColor: "" };
+    }
+    if (total === 0) {
+      return {
+        total,
+        label: "Sold Out",
+        color: "#EF4444",
+        dotColor: "#EF4444",
+      };
+    }
+    if (total <= 5) {
+      return {
+        total,
+        label: `${total} left`,
+        color: "#F59E0B",
+        dotColor: "#F59E0B",
+      };
+    }
+    return {
+      total,
+      label: `${total} in stock`,
+      color: theme.success,
+      dotColor: theme.success,
+    };
+  };
+
+  const stockInfo = getStockInfo();
+  const isOutOfStock = stockInfo.total === 0;
+
   // Get display price - use first active variant price if product price is 0 and variants exist
   const getDisplayPrice = () => {
     if (product.price > 0) return product.price;
@@ -59,29 +125,49 @@ export function ProductCard({
           style={[
             styles.gridCard,
             { backgroundColor: theme.backgroundDefault },
+            isOutOfStock && styles.gridCardDisabled,
           ]}
           onPress={onPress}
           testID={`product-${product.id}`}
         >
           <View style={styles.gridImageContainer}>
-            <Image source={{ uri: product.image }} style={styles.gridImage} />
-            {product.quantityInStock !== undefined &&
-              product.quantityInStock < 3 && (
-                <View style={styles.lowStockBadge}>
-                  <ThemedText style={styles.lowStockText}>
-                    {product.quantityInStock === 0 ? "Sold Out" : "Low Stock"}
-                  </ThemedText>
+            <Image
+              source={{ uri: product.image }}
+              style={[styles.gridImage, isOutOfStock && styles.imageGreyed]}
+            />
+            {isOutOfStock && (
+              <View style={styles.soldOutOverlay}>
+                <View style={styles.soldOutBadge}>
+                  <ThemedText style={styles.soldOutText}>Sold Out</ThemedText>
                 </View>
-              )}
+              </View>
+            )}
           </View>
 
           <View style={styles.gridInfo}>
             <ThemedText style={styles.gridName} numberOfLines={1}>
               {product.name}
             </ThemedText>
-            <ThemedText style={styles.gridPrice}>
+            <ThemedText style={[styles.gridPrice, { color: theme.primary }]}>
               ${displayPrice.toFixed(2)}
             </ThemedText>
+
+            {stockInfo.total !== undefined && stockInfo.total > 0 && (
+              <View style={styles.gridStockRow}>
+                <View
+                  style={[
+                    styles.gridStockDot,
+                    { backgroundColor: stockInfo.dotColor },
+                  ]}
+                />
+                <ThemedText
+                  style={[styles.gridStockText, { color: stockInfo.color }]}
+                  numberOfLines={1}
+                >
+                  {stockInfo.label}
+                </ThemedText>
+              </View>
+            )}
 
             {(hasColors || hasSizes) && (
               <View style={styles.variantsIndicator}>
@@ -97,14 +183,21 @@ export function ProductCard({
                       />
                     ))}
                     {activeColors.length > 3 && (
-                      <ThemedText style={styles.variantCount}>
+                      <ThemedText
+                        style={[
+                          styles.variantCount,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
                         +{activeColors.length - 3}
                       </ThemedText>
                     )}
                   </View>
                 )}
                 {hasSizes && (
-                  <ThemedText style={styles.sizeCount}>
+                  <ThemedText
+                    style={[styles.sizeCount, { color: theme.textSecondary }]}
+                  >
                     {activeSizes.length} sizes
                   </ThemedText>
                 )}
@@ -132,12 +225,21 @@ export function ProductCard({
     <Pressable onPress={onPress}>
       <Animated.View
         entering={FadeInDown.delay(index * 50).springify()}
-        style={styles.listCard}
+        style={[
+          styles.listCard,
+          { backgroundColor: theme.backgroundSecondary },
+          isOutOfStock && styles.listCardDisabled,
+        ]}
       >
         <View style={styles.listImageContainer}>
-          <Image source={{ uri: product.image }} style={styles.listImage} />
+          <Image
+            source={{ uri: product.image }}
+            style={[styles.listImage, isOutOfStock && styles.imageGreyed]}
+          />
           {hasVariants && (
-            <View style={styles.variantBadge}>
+            <View
+              style={[styles.variantBadge, { backgroundColor: theme.primary }]}
+            >
               <ThemedText style={styles.variantBadgeText}>
                 {activeVariants.length} variants
               </ThemedText>
@@ -164,28 +266,29 @@ export function ProductCard({
           </View>
 
           <View style={styles.priceRow}>
-            <ThemedText style={styles.listPrice}>
+            <ThemedText style={[styles.listPrice, { color: theme.primary }]}>
               ${displayPrice.toFixed(2)}
             </ThemedText>
-            {product.quantityInStock !== undefined &&
-              product.quantityInStock < 3 && (
-                <View style={styles.stockBadge}>
-                  <View
-                    style={[
-                      styles.stockDot,
-                      {
-                        backgroundColor:
-                          product.quantityInStock > 0 ? "#F59E0B" : "#EF4444",
-                      },
-                    ]}
-                  />
-                  <ThemedText style={styles.stockText}>
-                    {product.quantityInStock === 0
-                      ? "Out of stock"
-                      : `${product.quantityInStock} left`}
-                  </ThemedText>
-                </View>
-              )}
+            {stockInfo.total !== undefined && (
+              <View
+                style={[
+                  styles.stockBadge,
+                  { backgroundColor: theme.backgroundTertiary },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.stockDot,
+                    { backgroundColor: stockInfo.dotColor },
+                  ]}
+                />
+                <ThemedText
+                  style={[styles.stockText, { color: theme.textSecondary }]}
+                >
+                  {stockInfo.label}
+                </ThemedText>
+              </View>
+            )}
           </View>
 
           {hasColors && (
@@ -201,8 +304,15 @@ export function ProductCard({
                   />
                 ))}
                 {activeColors.length > 5 && (
-                  <View style={styles.moreIndicator}>
-                    <ThemedText style={styles.moreText}>
+                  <View
+                    style={[
+                      styles.moreIndicator,
+                      { backgroundColor: theme.backgroundTertiary },
+                    ]}
+                  >
+                    <ThemedText
+                      style={[styles.moreText, { color: theme.textSecondary }]}
+                    >
                       +{activeColors.length - 5}
                     </ThemedText>
                   </View>
@@ -215,15 +325,28 @@ export function ProductCard({
             <View style={styles.variantsRow}>
               <View style={styles.sizeChips}>
                 {activeSizes.slice(0, 4).map((size) => (
-                  <View key={size.id} style={styles.sizeChip}>
+                  <View
+                    key={size.id}
+                    style={[
+                      styles.sizeChip,
+                      { backgroundColor: theme.backgroundTertiary },
+                    ]}
+                  >
                     <ThemedText style={styles.sizeChipText}>
                       {size.name}
                     </ThemedText>
                   </View>
                 ))}
                 {activeSizes.length > 4 && (
-                  <View style={styles.moreIndicator}>
-                    <ThemedText style={styles.moreText}>
+                  <View
+                    style={[
+                      styles.moreIndicator,
+                      { backgroundColor: theme.backgroundTertiary },
+                    ]}
+                  >
+                    <ThemedText
+                      style={[styles.moreText, { color: theme.textSecondary }]}
+                    >
                       +{activeSizes.length - 4}
                     </ThemedText>
                   </View>
@@ -250,6 +373,9 @@ const styles = StyleSheet.create({
     borderColor: "rgba(0,0,0,0.04)",
     ...Shadows.sm,
   },
+  gridCardDisabled: {
+    opacity: 0.55,
+  },
   gridImageContainer: {
     position: "relative",
     backgroundColor: "#F8F8F8",
@@ -258,6 +384,26 @@ const styles = StyleSheet.create({
     width: "100%",
     aspectRatio: 1,
   },
+  imageGreyed: {
+    opacity: 0.5,
+  },
+  soldOutOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.25)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  soldOutBadge: {
+    backgroundColor: "rgba(239, 68, 68, 0.9)",
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.sm,
+  },
+  soldOutText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#fff",
+  },
   gridInfo: {
     padding: Spacing.sm,
     gap: 2,
@@ -265,12 +411,10 @@ const styles = StyleSheet.create({
   gridName: {
     fontSize: 13,
     fontWeight: "600",
-    color: Colors.light.text,
   },
   gridPrice: {
     fontSize: 15,
     fontWeight: "700",
-    color: Colors.light.primary,
   },
   lowStockBadge: {
     position: "absolute",
@@ -306,30 +450,45 @@ const styles = StyleSheet.create({
   },
   variantCount: {
     fontSize: 10,
-    color: Colors.light.textSecondary,
     marginLeft: 2,
   },
   sizeCount: {
     fontSize: 10,
-    color: Colors.light.textSecondary,
   },
   sellerRow: {
     marginTop: 4,
   },
   sellerName: {
     fontSize: 11,
-    color: Colors.light.textSecondary,
+  },
+  gridStockRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 2,
+  },
+  gridStockDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  gridStockText: {
+    fontSize: 11,
+    fontWeight: "600",
+    flexShrink: 1,
   },
 
   // List variant styles
   listCard: {
     flexDirection: "row",
-    backgroundColor: Colors.light.backgroundSecondary,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     gap: Spacing.md,
     ...Shadows.sm,
+  },
+  listCardDisabled: {
+    opacity: 0.55,
   },
   listImageContainer: {
     position: "relative",
@@ -342,7 +501,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 4,
     right: 4,
-    backgroundColor: Colors.light.primary,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: BorderRadius.sm,
@@ -365,7 +523,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: "600",
-    color: Colors.light.text,
   },
   deleteBtn: {
     padding: 4,
@@ -378,13 +535,11 @@ const styles = StyleSheet.create({
   listPrice: {
     fontSize: 18,
     fontWeight: "700",
-    color: Colors.light.primary,
   },
   stockBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: Colors.light.backgroundTertiary,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: BorderRadius.full,
@@ -397,7 +552,6 @@ const styles = StyleSheet.create({
   stockText: {
     fontSize: 12,
     fontWeight: "500",
-    color: Colors.light.textSecondary,
   },
   variantsRow: {
     flexDirection: "row",
@@ -422,7 +576,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   sizeChip: {
-    backgroundColor: Colors.light.backgroundTertiary,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: BorderRadius.sm,
@@ -430,10 +583,8 @@ const styles = StyleSheet.create({
   sizeChipText: {
     fontSize: 11,
     fontWeight: "500",
-    color: Colors.light.text,
   },
   moreIndicator: {
-    backgroundColor: Colors.light.backgroundTertiary,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: BorderRadius.sm,
@@ -441,6 +592,5 @@ const styles = StyleSheet.create({
   moreText: {
     fontSize: 10,
     fontWeight: "600",
-    color: Colors.light.textSecondary,
   },
 });

@@ -1,5 +1,14 @@
 import React, { useState } from "react";
-import { View, StyleSheet, Pressable, Image } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  Image,
+  Modal,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+} from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -15,20 +24,148 @@ import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
-import { Spacing, BorderRadius, Colors, Shadows } from "@/constants/theme";
-import { mockUser } from "@/data/mockData";
+import { Spacing, BorderRadius, Shadows } from "@/constants/theme";
+import { supabase } from "@/lib/supabase";
+import { uploadImage } from "@/services/storage";
+import * as ImagePicker from "expo-image-picker";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+interface UserProfile {
+  id: string;
+  name: string;
+  avatar: string | null;
+  isSeller: boolean;
+  followers: number;
+  following: number;
+}
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
-  const { signOut } = useAuth();
+  const { user: authUser, signOut } = useAuth();
   const navigation = useNavigation<NavigationProp>();
-  const [user] = useState(mockUser);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [, setLoading] = useState(true);
+
+  // Edit profile state
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editAvatar, setEditAvatar] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const loadProfile = React.useCallback(async () => {
+    if (!authUser) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, name, avatar_url")
+        .eq("id", authUser.id)
+        .single();
+
+      if (error) throw error;
+
+      setProfile({
+        id: data.id,
+        name: data.name || authUser.email?.split("@")[0] || "User",
+        avatar: data.avatar_url,
+        isSeller: true, // TODO: Add is_seller field to profiles table
+        followers: 0, // TODO: Add followers count
+        following: 0, // TODO: Add following count
+      });
+    } catch (error) {
+      console.error("Error loading profile:", error);
+      // Fallback to basic user info
+      setProfile({
+        id: authUser.id,
+        name: authUser.email?.split("@")[0] || "User",
+        avatar: null,
+        isSeller: true,
+        followers: 0,
+        following: 0,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [authUser]);
+
+  React.useEffect(() => {
+    if (authUser) {
+      loadProfile();
+    }
+  }, [authUser, loadProfile]);
+
+  if (!profile) {
+    return null;
+  }
+
+  const openEditModal = () => {
+    if (!profile) return;
+    setEditName(profile.name);
+    setEditAvatar(profile.avatar);
+    setEditModalVisible(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const pickAvatar = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setEditAvatar(result.assets[0].uri);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
+  const saveProfile = async () => {
+    if (!authUser || !editName.trim()) {
+      Alert.alert("Error", "Please enter a display name");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      let avatarUrl = editAvatar;
+
+      // Upload new avatar if it's a local file
+      if (editAvatar && !editAvatar.includes("supabase")) {
+        const uploaded = await uploadImage(editAvatar, "avatars");
+        if (uploaded) {
+          avatarUrl = uploaded;
+        }
+      }
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          name: editName.trim(),
+          avatar_url: avatarUrl,
+        })
+        .eq("id", authUser.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setProfile((prev) =>
+        prev ? { ...prev, name: editName.trim(), avatar: avatarUrl } : null,
+      );
+      setEditModalVisible(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error("Error saving profile:", error);
+      Alert.alert("Error", "Failed to save profile. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleGoLive = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -66,8 +203,8 @@ export default function ProfileScreen() {
               { backgroundColor: theme.backgroundRoot },
             ]}
           >
-            {user.avatar ? (
-              <Image source={{ uri: user.avatar }} style={styles.avatar} />
+            {profile.avatar ? (
+              <Image source={{ uri: profile.avatar }} style={styles.avatar} />
             ) : (
               <Image
                 source={require("../../assets/images/avatar-default-1.png")}
@@ -77,29 +214,23 @@ export default function ProfileScreen() {
           </View>
         </LinearGradient>
         <Pressable
-          style={styles.editButton}
-          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+          style={[styles.editButton, { backgroundColor: theme.primary }]}
+          onPress={openEditModal}
         >
-          <Feather name="edit-2" size={14} color={Colors.light.buttonText} />
+          <Feather name="edit-2" size={14} color={theme.buttonText} />
         </Pressable>
-        <ThemedText style={styles.name}>{user.name}</ThemedText>
-        {user.isSeller ? (
+        <ThemedText style={styles.name}>{profile.name}</ThemedText>
+        {profile.isSeller ? (
           <View style={styles.sellerBadge}>
-            <Feather
-              name="check-circle"
-              size={14}
-              color={Colors.light.success}
-            />
-            <ThemedText
-              style={[styles.sellerText, { color: Colors.light.success }]}
-            >
+            <Feather name="check-circle" size={14} color={theme.success} />
+            <ThemedText style={[styles.sellerText, { color: theme.success }]}>
               Verified Seller
             </ThemedText>
           </View>
         ) : null}
       </Animated.View>
 
-      {user.isSeller ? (
+      {profile.isSeller ? (
         <Animated.View
           entering={FadeInDown.delay(200).springify()}
           style={styles.statsRow}
@@ -110,10 +241,8 @@ export default function ProfileScreen() {
               { backgroundColor: theme.backgroundSecondary },
             ]}
           >
-            <ThemedText
-              style={[styles.statValue, { color: Colors.light.secondary }]}
-            >
-              {user.followers.toLocaleString()}
+            <ThemedText style={[styles.statValue, { color: theme.secondary }]}>
+              {profile.followers.toLocaleString()}
             </ThemedText>
             <ThemedText
               style={[styles.statLabel, { color: theme.textSecondary }]}
@@ -127,10 +256,8 @@ export default function ProfileScreen() {
               { backgroundColor: theme.backgroundSecondary },
             ]}
           >
-            <ThemedText
-              style={[styles.statValue, { color: Colors.light.secondary }]}
-            >
-              {user.following.toLocaleString()}
+            <ThemedText style={[styles.statValue, { color: theme.secondary }]}>
+              {profile.following.toLocaleString()}
             </ThemedText>
             <ThemedText
               style={[styles.statLabel, { color: theme.textSecondary }]}
@@ -142,15 +269,15 @@ export default function ProfileScreen() {
       ) : null}
 
       <Animated.View entering={FadeInDown.delay(300).springify()}>
-        {user.isSeller ? (
+        {profile.isSeller ? (
           <Pressable style={styles.goLiveButton} onPress={handleGoLive}>
             <LinearGradient
-              colors={[Colors.light.primary, "#FF8C5A"]}
+              colors={[theme.primary, "#FF8C5A"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.goLiveGradient}
             >
-              <Feather name="video" size={20} color={Colors.light.buttonText} />
+              <Feather name="video" size={20} color={theme.buttonText} />
               <ThemedText style={styles.goLiveText}>
                 Start Live Stream
               </ThemedText>
@@ -172,7 +299,7 @@ export default function ProfileScreen() {
                 <Feather
                   name="shopping-bag"
                   size={24}
-                  color={Colors.light.buttonText}
+                  color={theme.buttonText}
                 />
               </LinearGradient>
               <View style={styles.becomeSellerText}>
@@ -188,23 +315,26 @@ export default function ProfileScreen() {
                   Start selling your products through live streams
                 </ThemedText>
               </View>
-              <Feather
-                name="chevron-right"
-                size={20}
-                color={Colors.light.secondary}
-              />
+              <Feather name="chevron-right" size={20} color={theme.secondary} />
             </View>
           </Card>
         )}
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(400).springify()}>
-        <ThemedText
-          style={[styles.sectionTitle, { color: Colors.light.secondary }]}
-        >
+        <ThemedText style={[styles.sectionTitle, { color: theme.secondary }]}>
           Account
         </ThemedText>
         <Card elevation={1} style={styles.menuCard}>
+          <MenuItem
+            icon="shopping-bag"
+            label="My Orders"
+            onPress={() => navigation.navigate("Orders")}
+            theme={theme}
+          />
+          <View
+            style={[styles.menuDivider, { backgroundColor: theme.border }]}
+          />
           <MenuItem
             icon="package"
             label="My Products"
@@ -223,15 +353,6 @@ export default function ProfileScreen() {
             style={[styles.menuDivider, { backgroundColor: theme.border }]}
           />
           <MenuItem
-            icon="settings"
-            label="Settings"
-            onPress={() => navigation.navigate("Settings")}
-            theme={theme}
-          />
-          <View
-            style={[styles.menuDivider, { backgroundColor: theme.border }]}
-          />
-          <MenuItem
             icon="log-out"
             label="Sign Out"
             onPress={handleSignOut}
@@ -239,6 +360,98 @@ export default function ProfileScreen() {
           />
         </Card>
       </Animated.View>
+
+      {/* Edit Profile Modal */}
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View
+          style={[
+            styles.modalContainer,
+            { backgroundColor: theme.backgroundRoot },
+          ]}
+        >
+          <View
+            style={[styles.modalHeader, { borderBottomColor: theme.border }]}
+          >
+            <Pressable
+              onPress={() => setEditModalVisible(false)}
+              style={styles.modalCloseBtn}
+            >
+              <Feather name="x" size={24} color={theme.text} />
+            </Pressable>
+            <ThemedText style={styles.modalTitle}>Edit Profile</ThemedText>
+            <Pressable
+              onPress={saveProfile}
+              style={styles.modalSaveBtn}
+              disabled={saving}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color={theme.primary} />
+              ) : (
+                <ThemedText
+                  style={[styles.modalSaveText, { color: theme.primary }]}
+                >
+                  Save
+                </ThemedText>
+              )}
+            </Pressable>
+          </View>
+
+          <View style={styles.modalContent}>
+            <Pressable style={styles.avatarEditSection} onPress={pickAvatar}>
+              <View style={styles.avatarEditContainer}>
+                {editAvatar ? (
+                  <Image
+                    source={{ uri: editAvatar }}
+                    style={styles.avatarEdit}
+                  />
+                ) : (
+                  <Image
+                    source={require("../../assets/images/avatar-default-1.png")}
+                    style={styles.avatarEdit}
+                  />
+                )}
+                <View style={styles.avatarEditOverlay}>
+                  <Feather name="camera" size={24} color="#fff" />
+                </View>
+              </View>
+              <ThemedText
+                style={[styles.changePhotoText, { color: theme.primary }]}
+              >
+                Change Photo
+              </ThemedText>
+            </Pressable>
+
+            <View style={styles.inputGroup}>
+              <ThemedText
+                style={[styles.inputLabel, { color: theme.textSecondary }]}
+              >
+                Display Name
+              </ThemedText>
+              <TextInput
+                style={[
+                  styles.textInput,
+                  {
+                    backgroundColor: theme.backgroundSecondary,
+                    color: theme.text,
+                    borderColor: theme.border,
+                  },
+                ]}
+                value={editName}
+                onChangeText={setEditName}
+                placeholder="Enter your name"
+                placeholderTextColor={theme.textSecondary}
+                autoCapitalize="words"
+                maxLength={50}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAwareScrollViewCompat>
   );
 }
@@ -268,7 +481,7 @@ function MenuItem({
           { backgroundColor: theme.backgroundSecondary },
         ]}
       >
-        <Feather name={icon} size={18} color={Colors.light.secondary} />
+        <Feather name={icon} size={18} color={theme.secondary} />
       </View>
       <ThemedText style={styles.menuLabel}>{label}</ThemedText>
       <Feather name="chevron-right" size={18} color={theme.textSecondary} />
@@ -311,7 +524,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Colors.light.primary,
     alignItems: "center",
     justifyContent: "center",
     ...Shadows.md,
@@ -319,6 +531,7 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 24,
     fontWeight: "700",
+    lineHeight: 32,
     marginBottom: Spacing.xs,
   },
   sellerBadge: {
@@ -363,7 +576,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   goLiveText: {
-    color: Colors.light.buttonText,
+    color: "#FFFFFF",
     fontWeight: "700",
     fontSize: 16,
   },
@@ -423,5 +636,84 @@ const styles = StyleSheet.create({
   menuDivider: {
     height: 1,
     marginLeft: Spacing["3xl"] + Spacing.lg,
+  },
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+  },
+  modalCloseBtn: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: "600",
+  },
+  modalSaveBtn: {
+    width: 60,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalSaveText: {
+    fontSize: 17,
+    fontWeight: "600",
+  },
+  modalContent: {
+    padding: Spacing.xl,
+  },
+  avatarEditSection: {
+    alignItems: "center",
+    marginBottom: Spacing.xl,
+  },
+  avatarEditContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    overflow: "hidden",
+    marginBottom: Spacing.sm,
+  },
+  avatarEdit: {
+    width: "100%",
+    height: "100%",
+  },
+  avatarEditOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  changePhotoText: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  inputGroup: {
+    marginBottom: Spacing.lg,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: Spacing.xs,
+  },
+  textInput: {
+    fontSize: 16,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
   },
 });

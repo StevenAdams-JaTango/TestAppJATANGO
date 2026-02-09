@@ -62,7 +62,14 @@
         }
       ],
       "@livekit/react-native-expo-plugin",
-      "@config-plugins/react-native-webrtc"
+      "@config-plugins/react-native-webrtc",
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.jatango.app",
+          "enableGooglePay": false
+        }
+      ]
     ],
     "experiments": {
       "reactCompiler": false

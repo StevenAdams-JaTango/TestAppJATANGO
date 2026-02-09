@@ -173,6 +173,37 @@ export function registerStreamingRoutes(app: Express) {
           return;
         }
 
+        // Wait for room to exist before updating metadata
+        // Room may not exist immediately after connection
+        let roomExists = false;
+        let attempts = 0;
+        const maxAttempts = 10;
+
+        while (!roomExists && attempts < maxAttempts) {
+          const rooms = await roomService.listRooms();
+          roomExists = rooms.some((r) => r.name === roomName);
+
+          if (!roomExists) {
+            console.log(
+              `[Streaming] Room ${roomName} not yet created, waiting... (attempt ${attempts + 1}/${maxAttempts})`,
+            );
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            attempts++;
+          }
+        }
+
+        if (!roomExists) {
+          console.error(
+            `[Streaming] Room ${roomName} does not exist after ${maxAttempts} attempts`,
+          );
+          res.status(404).json({
+            error: "Room not found",
+            message:
+              "Room has not been created yet. Please ensure the broadcaster has connected.",
+          });
+          return;
+        }
+
         const metadata = JSON.stringify({
           title,
           thumbnailPath,

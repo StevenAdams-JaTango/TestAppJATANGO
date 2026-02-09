@@ -12,24 +12,33 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, BorderRadius, Spacing, Shadows } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { BorderRadius, Spacing, Shadows } from "@/constants/theme";
 import { Product } from "@/types";
 
 interface ProductCarouselProps {
   products: Product[];
   onProductPress: (product: Product) => void;
   visible: boolean;
+  showBuyButton?: boolean;
 }
 
 interface CarouselItemProps {
   product: Product;
   onPress: () => void;
   index: number;
+  showBuyButton?: boolean;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-function CarouselItem({ product, onPress, index }: CarouselItemProps) {
+function CarouselItem({
+  product,
+  onPress,
+  index,
+  showBuyButton = false,
+}: CarouselItemProps) {
+  const { theme } = useTheme();
   const scale = useSharedValue(1);
   const [imageError, setImageError] = React.useState(false);
 
@@ -63,7 +72,11 @@ function CarouselItem({ product, onPress, index }: CarouselItemProps) {
         onPress={handlePress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        style={[styles.item, animatedStyle]}
+        style={[
+          styles.item,
+          { backgroundColor: theme.backgroundRoot },
+          animatedStyle,
+        ]}
         testID={`carousel-product-${product.id}`}
       >
         {hasValidImage ? (
@@ -74,26 +87,32 @@ function CarouselItem({ product, onPress, index }: CarouselItemProps) {
             onError={() => setImageError(true)}
           />
         ) : (
-          <View style={[styles.itemImage, styles.itemImagePlaceholder]}>
-            <Feather name="package" size={32} color={Colors.light.secondary} />
+          <View
+            style={[
+              styles.itemImage,
+              styles.itemImagePlaceholder,
+              { backgroundColor: theme.backgroundSecondary },
+            ]}
+          >
+            <Feather name="package" size={32} color={theme.secondary} />
           </View>
         )}
         <View style={styles.itemInfo}>
-          <ThemedText style={styles.itemPrice}>
+          <ThemedText style={[styles.itemPrice, { color: theme.primary }]}>
             ${product.price.toFixed(2)}
           </ThemedText>
           <ThemedText style={styles.itemName} numberOfLines={1}>
             {product.name}
           </ThemedText>
         </View>
-        <View style={styles.buyButton}>
-          <Feather
-            name="shopping-cart"
-            size={14}
-            color={Colors.light.buttonText}
-          />
-          <ThemedText style={styles.buyText}>Buy</ThemedText>
-        </View>
+        {showBuyButton && (
+          <View style={[styles.buyButton, { backgroundColor: theme.primary }]}>
+            <Feather name="shopping-cart" size={14} color={theme.buttonText} />
+            <ThemedText style={[styles.buyText, { color: theme.buttonText }]}>
+              Buy
+            </ThemedText>
+          </View>
+        )}
       </AnimatedPressable>
     </Animated.View>
   );
@@ -103,6 +122,7 @@ export function ProductCarousel({
   products,
   onProductPress,
   visible,
+  showBuyButton = false,
 }: ProductCarouselProps) {
   const translateY = useSharedValue(100);
 
@@ -137,6 +157,7 @@ export function ProductCarousel({
               product={product}
               onPress={() => onProductPress(product)}
               index={index}
+              showBuyButton={showBuyButton}
             />
           ))}
         </ScrollView>
@@ -171,7 +192,6 @@ const styles = StyleSheet.create({
     marginRight: Spacing.sm,
   },
   item: {
-    backgroundColor: Colors.light.backgroundRoot,
     borderRadius: BorderRadius.sm,
     overflow: "hidden",
     width: 130,
@@ -187,28 +207,23 @@ const styles = StyleSheet.create({
   itemPrice: {
     fontSize: 14,
     fontWeight: "700",
-    color: Colors.light.primary,
   },
   itemName: {
     fontSize: 11,
-    color: Colors.light.text,
     marginTop: 2,
   },
   buyButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: Colors.light.primary,
     paddingVertical: Spacing.xs,
     gap: 4,
   },
   buyText: {
     fontSize: 12,
     fontWeight: "600",
-    color: Colors.light.buttonText,
   },
   itemImagePlaceholder: {
-    backgroundColor: Colors.light.backgroundSecondary,
     alignItems: "center",
     justifyContent: "center",
   },

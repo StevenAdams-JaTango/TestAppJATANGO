@@ -19,7 +19,7 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { ImageCropperModal } from "@/components/ImageCropperModal";
 import { useTheme } from "@/hooks/useTheme";
-import { BorderRadius, Colors, Shadows, Spacing } from "@/constants/theme";
+import { BorderRadius, Shadows, Spacing } from "@/constants/theme";
 import { showsService } from "@/services/shows";
 import { uploadImage } from "@/services/storage";
 import type { ShowsStackParamList } from "@/navigation/ShowsStackNavigator";
@@ -155,7 +155,9 @@ export default function ShowSetupScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.headerSection}>
-          <View style={styles.iconContainer}>
+          <View
+            style={[styles.iconContainer, { backgroundColor: theme.primary }]}
+          >
             <Feather name="video" size={28} color="#fff" />
           </View>
           <ThemedText style={[styles.screenTitle, { color: theme.text }]}>
@@ -185,7 +187,13 @@ export default function ShowSetupScreen() {
                 style={styles.thumbnail}
               />
               <View style={styles.thumbnailOverlay}>
-                <Pressable style={styles.captureBtn} onPress={handleCapture}>
+                <Pressable
+                  style={[
+                    styles.captureBtn,
+                    { backgroundColor: theme.primary },
+                  ]}
+                  onPress={handleCapture}
+                >
                   <Feather name="camera" size={16} color="#fff" />
                   <ThemedText style={styles.captureText}>
                     {Platform.OS === "web" ? "Change" : "Change"}
@@ -207,7 +215,7 @@ export default function ShowSetupScreen() {
               ]}
             >
               <View style={styles.placeholderIconContainer}>
-                <Feather name="image" size={32} color={Colors.light.primary} />
+                <Feather name="image" size={32} color={theme.primary} />
               </View>
               <ThemedText
                 style={[styles.placeholderText, { color: theme.text }]}
@@ -223,7 +231,12 @@ export default function ShowSetupScreen() {
                 This will be shown to viewers before your show starts
               </ThemedText>
               <View style={styles.uploadBtnContainer}>
-                <View style={styles.captureBtn}>
+                <View
+                  style={[
+                    styles.captureBtn,
+                    { backgroundColor: theme.primary },
+                  ]}
+                >
                   <Feather name="camera" size={16} color="#fff" />
                   <ThemedText style={styles.captureText}>
                     {Platform.OS === "web" ? "Upload" : "Capture"}
@@ -261,11 +274,7 @@ export default function ShowSetupScreen() {
             Tips for a great show
           </ThemedText>
           <View style={styles.tipRow}>
-            <Feather
-              name="check-circle"
-              size={14}
-              color={Colors.light.primary}
-            />
+            <Feather name="check-circle" size={14} color={theme.primary} />
             <ThemedText
               style={[styles.tipText, { color: theme.textSecondary }]}
             >
@@ -273,11 +282,7 @@ export default function ShowSetupScreen() {
             </ThemedText>
           </View>
           <View style={styles.tipRow}>
-            <Feather
-              name="check-circle"
-              size={14}
-              color={Colors.light.primary}
-            />
+            <Feather name="check-circle" size={14} color={theme.primary} />
             <ThemedText
               style={[styles.tipText, { color: theme.textSecondary }]}
             >
@@ -285,11 +290,7 @@ export default function ShowSetupScreen() {
             </ThemedText>
           </View>
           <View style={styles.tipRow}>
-            <Feather
-              name="check-circle"
-              size={14}
-              color={Colors.light.primary}
-            />
+            <Feather name="check-circle" size={14} color={theme.primary} />
             <ThemedText
               style={[styles.tipText, { color: theme.textSecondary }]}
             >
@@ -299,7 +300,11 @@ export default function ShowSetupScreen() {
         </View>
 
         <Pressable
-          style={[styles.saveBtn, !canSave ? styles.saveBtnDisabled : null]}
+          style={[
+            styles.saveBtn,
+            { backgroundColor: theme.primary },
+            !canSave ? styles.saveBtnDisabled : null,
+          ]}
           onPress={handleSave}
           disabled={!canSave || isSaving}
         >
@@ -349,7 +354,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: Colors.light.primary,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.md,
@@ -419,7 +423,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: Colors.light.primary,
     paddingHorizontal: Spacing.md,
     paddingVertical: 10,
     borderRadius: BorderRadius.full,
@@ -480,7 +483,6 @@ const styles = StyleSheet.create({
   },
   saveBtn: {
     marginTop: Spacing.xl,
-    backgroundColor: Colors.light.primary,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.full,
     alignItems: "center",

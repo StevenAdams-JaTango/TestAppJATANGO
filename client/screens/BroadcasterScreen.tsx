@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -11,8 +11,13 @@ import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { CameraView, useCameraPermissions } from "expo-camera";
+import {
+  CameraView,
+  useCameraPermissions,
+  useMicrophonePermissions,
+} from "expo-camera";
 import type { CameraType } from "expo-camera";
+import { RoomEvent, Track, LocalVideoTrack } from "livekit-client";
 import * as Haptics from "expo-haptics";
 import Animated, {
   FadeIn,
@@ -25,7 +30,8 @@ import { Button } from "@/components/Button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ProductCarousel } from "@/components/ProductCarousel";
 import { ProductSelectionSheet } from "@/components/ProductSelectionSheet";
-import { Colors, BorderRadius, Spacing, Shadows } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { BorderRadius, Spacing, Shadows } from "@/constants/theme";
 import { productsService } from "@/services/products";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { Product } from "@/types";
@@ -39,18 +45,37 @@ import { supabase } from "@/lib/supabase";
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type BroadcasterRoute = RouteProp<RootStackParamList, "Broadcaster">;
 
+let VideoView: React.ComponentType<any> | null = null;
+if (Platform.OS !== "web") {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const liveKitNative = require("@livekit/react-native");
+    VideoView = liveKitNative.VideoView;
+  } catch (e) {
+    console.warn("[BroadcasterScreen] Failed to import VideoView:", e);
+  }
+}
+
 export default function BroadcasterScreen() {
+  const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<BroadcasterRoute>();
   const { user } = useAuth();
   const [permission, requestPermission] = useCameraPermissions();
+  const [micPermission, requestMicPermission] = useMicrophonePermissions();
   const [facing, setFacing] = useState<CameraType>("back");
   const requestedOnceRef = useRef(false);
+  const requestedMicOnceRef = useRef(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isGoingLive, setIsGoingLive] = useState(false);
   const [hostName, setHostName] = useState<string>("Host");
+  const [localVideoTrack, setLocalVideoTrack] =
+    useState<LocalVideoTrack | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const webPreviewStreamRef = useRef<any>(null);
+  const [webPreviewActive, setWebPreviewActive] = useState(false);
 
   const draftId = route.params?.draftId;
   const [showTitle, setShowTitle] = useState<string>("");
@@ -97,6 +122,135 @@ export default function BroadcasterScreen() {
   const isLive = streaming.isConnected;
   const viewerCount = streaming.viewerCount;
 
+  const chatListRef = useRef<FlatList>(null);
+  const carouselProductsRef = useRef<Product[]>([]);
+  const showCarouselRef = useRef(true);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [showProductSheet, setShowProductSheet] = useState(false);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [carouselProducts, setCarouselProducts] = useState<Product[]>([]);
+  const [showCarousel, setShowCarousel] = useState(true);
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [userProducts, setUserProducts] = useState<Product[]>([]);
+
+  // Attach local video track when streaming starts
+  useEffect(() => {
+    if (!streaming.room) {
+      setLocalVideoTrack(null);
+      return;
+    }
+
+    const updateLocalTrack = () => {
+      const videoTrackPub =
+        streaming.room?.localParticipant.getTrackPublication(
+          Track.Source.Camera,
+        );
+      setLocalVideoTrack((videoTrackPub?.track as LocalVideoTrack) ?? null);
+    };
+
+    updateLocalTrack();
+
+    const handleLocalTrackPublished = () => updateLocalTrack();
+    const handleLocalTrackUnpublished = () => setLocalVideoTrack(null);
+
+    streaming.room.on(RoomEvent.LocalTrackPublished, handleLocalTrackPublished);
+    streaming.room.on(
+      RoomEvent.LocalTrackUnpublished,
+      handleLocalTrackUnpublished,
+    );
+
+    const pollInterval = setInterval(updateLocalTrack, 500);
+    const pollTimeout = setTimeout(() => clearInterval(pollInterval), 5000);
+
+    return () => {
+      clearInterval(pollInterval);
+      clearTimeout(pollTimeout);
+      streaming.room?.off(
+        RoomEvent.LocalTrackPublished,
+        handleLocalTrackPublished,
+      );
+      streaming.room?.off(
+        RoomEvent.LocalTrackUnpublished,
+        handleLocalTrackUnpublished,
+      );
+    };
+  }, [streaming.room]);
+
+  // Attach video track to HTML video element (web only)
+  useEffect(() => {
+    if (Platform.OS !== "web" || !localVideoTrack || !videoRef.current) return;
+
+    if (webPreviewStreamRef.current && videoRef.current.srcObject) {
+      try {
+        const tracks = webPreviewStreamRef.current.getTracks?.() ?? [];
+        tracks.forEach((t: any) => t.stop?.());
+      } catch {
+        // ignore
+      }
+      webPreviewStreamRef.current = null;
+      videoRef.current.srcObject = null;
+      setWebPreviewActive(false);
+    }
+
+    localVideoTrack.attach(videoRef.current);
+    return () => {
+      localVideoTrack.detach();
+    };
+  }, [localVideoTrack]);
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    if (cameraError) return;
+    if (isLive) return;
+    if (!videoRef.current) return;
+
+    const videoEl = videoRef.current;
+
+    let isMounted = true;
+
+    const startPreview = async () => {
+      try {
+        const facingMode = facing === "front" ? "user" : "environment";
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode },
+          audio: false,
+        });
+
+        if (!isMounted) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+
+        webPreviewStreamRef.current = stream;
+        videoEl.srcObject = stream;
+        setWebPreviewActive(true);
+      } catch (err) {
+        console.error("[BroadcasterScreen] Web preview error:", err);
+        setWebPreviewActive(false);
+        setCameraError(
+          err instanceof Error ? err.message : "Failed to start camera preview",
+        );
+      }
+    };
+
+    startPreview();
+
+    return () => {
+      isMounted = false;
+      if (webPreviewStreamRef.current) {
+        try {
+          const tracks = webPreviewStreamRef.current.getTracks?.() ?? [];
+          tracks.forEach((t: any) => t.stop?.());
+        } catch {
+          // ignore
+        }
+        webPreviewStreamRef.current = null;
+      }
+      if (videoEl.srcObject) videoEl.srcObject = null;
+      setWebPreviewActive(false);
+    };
+  }, [cameraError, facing, isLive]);
+
   useEffect(() => {
     (async () => {
       if (!draftId) {
@@ -121,13 +275,6 @@ export default function BroadcasterScreen() {
     })();
   }, [draftId, navigation]);
 
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const [showProductSheet, setShowProductSheet] = useState(false);
-  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
-  const [carouselProducts, setCarouselProducts] = useState<Product[]>([]);
-  const [showCarousel, setShowCarousel] = useState(true);
-  const [showEndConfirm, setShowEndConfirm] = useState(false);
-  const [userProducts, setUserProducts] = useState<Product[]>([]);
   const isCarouselVisible =
     isLive && showCarousel && carouselProducts.length > 0;
   const addProductsBottom = insets.bottom + (isCarouselVisible ? 240 : 120);
@@ -142,6 +289,16 @@ export default function BroadcasterScreen() {
     requestPermission();
   }, [permission, requestPermission]);
 
+  useEffect(() => {
+    if (!micPermission) return;
+    if (micPermission.granted) return;
+    if (requestedMicOnceRef.current) return;
+    if (!micPermission.canAskAgain) return;
+
+    requestedMicOnceRef.current = true;
+    requestMicPermission();
+  }, [micPermission, requestMicPermission]);
+
   // Load user's products
   useEffect(() => {
     (async () => {
@@ -149,6 +306,101 @@ export default function BroadcasterScreen() {
       setUserProducts(products);
     })();
   }, []);
+
+  const broadcastCarouselUpdate = useCallback(
+    async (params?: { products?: Product[]; visible?: boolean }) => {
+      if (!streaming.room) return;
+
+      const products = params?.products ?? carouselProductsRef.current;
+      const visible = params?.visible ?? showCarouselRef.current;
+
+      const encoder = new TextEncoder();
+      const data = encoder.encode(
+        JSON.stringify({
+          type: "carousel_update",
+          // Keep payload small/reliable across clients. Viewers fetch full product by id when opening.
+          products: products.map((p: Product) => ({
+            id: p.id,
+            name: p.name,
+            price: p.price,
+            image: p.image,
+            sellerId: p.sellerId,
+            sellerName: p.sellerName,
+            sellerAvatar: p.sellerAvatar,
+          })),
+          visible,
+        }),
+      );
+
+      console.log(
+        "[BroadcasterScreen] Broadcasting carousel_update:",
+        products.length,
+        "visible:",
+        visible,
+      );
+
+      await streaming.room.localParticipant.publishData(data, {
+        reliable: true,
+      });
+    },
+    [streaming.room],
+  );
+
+  // Respond to viewer state requests. This is the most reliable way to support late joiners.
+  useEffect(() => {
+    if (!streaming.room) return;
+
+    const handleDataReceived = async (payload: Uint8Array) => {
+      try {
+        const decoder = new TextDecoder();
+        const message = decoder.decode(payload);
+        const data = JSON.parse(message) as { type?: unknown };
+
+        if (data.type === "carousel_request") {
+          console.log("[BroadcasterScreen] Received carousel_request");
+          if (carouselProductsRef.current.length === 0) return;
+          await broadcastCarouselUpdate();
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    streaming.room.on(RoomEvent.DataReceived, handleDataReceived);
+    return () => {
+      streaming.room?.off(RoomEvent.DataReceived, handleDataReceived);
+    };
+  }, [streaming.room, broadcastCarouselUpdate]);
+
+  // Keep refs in sync for the late-joiner re-broadcast
+  useEffect(() => {
+    carouselProductsRef.current = carouselProducts;
+  }, [carouselProducts]);
+  useEffect(() => {
+    showCarouselRef.current = showCarousel;
+  }, [showCarousel]);
+
+  // Re-broadcast carousel state when a new viewer joins (late joiners)
+  useEffect(() => {
+    if (!streaming.room) return;
+
+    const handleParticipantConnected = async () => {
+      const products = carouselProductsRef.current;
+      if (products.length === 0) return;
+      await broadcastCarouselUpdate();
+    };
+
+    streaming.room.on(
+      RoomEvent.ParticipantConnected,
+      handleParticipantConnected,
+    );
+    return () => {
+      streaming.room?.off(
+        RoomEvent.ParticipantConnected,
+        handleParticipantConnected,
+      );
+    };
+  }, [streaming.room, broadcastCarouselUpdate]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -179,8 +431,11 @@ export default function BroadcasterScreen() {
     // Mark show as ended so it moves to Past Shows
     if (draftId) {
       await showsService.updateStatus(draftId, "ended");
+      // Navigate to show summary so host sees sales recap
+      navigation.replace("ShowSummary", { showId: draftId });
+    } else {
+      navigation.goBack();
     }
-    navigation.goBack();
   };
 
   const cancelEndStream = () => {
@@ -257,25 +512,7 @@ export default function BroadcasterScreen() {
     setShowProductSheet(false);
     setShowCarousel(true);
 
-    // Broadcast carousel update to all viewers
-    if (streaming.room) {
-      const encoder = new TextEncoder();
-      const data = encoder.encode(
-        JSON.stringify({
-          type: "carousel_update",
-          products: products.map((p: Product) => ({
-            id: p.id,
-            name: p.name,
-            price: p.price,
-            image: p.image,
-          })),
-          visible: true,
-        }),
-      );
-      await streaming.room.localParticipant.publishData(data, {
-        reliable: true,
-      });
-    }
+    await broadcastCarouselUpdate({ products, visible: true });
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
@@ -284,46 +521,50 @@ export default function BroadcasterScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
 
-  if (!permission) {
-    return <View style={styles.container} />;
-  }
+  if (Platform.OS !== "web") {
+    if (!permission || !micPermission) {
+      return <View style={styles.container} />;
+    }
 
-  if (!permission.granted) {
-    return (
-      <View style={[styles.container, styles.permissionContainer]}>
-        <Feather
-          name="video-off"
-          size={64}
-          color={Colors.light.textSecondary}
-        />
-        <ThemedText style={styles.permissionTitle}>
-          Camera Access Required
-        </ThemedText>
-        <ThemedText style={styles.permissionText}>
-          We need camera access to start your live stream
-        </ThemedText>
-        <Button onPress={requestPermission} style={styles.permissionButton}>
-          Enable Camera
-        </Button>
-        <Pressable
-          onPress={() => navigation.goBack()}
-          style={styles.cancelButton}
-        >
-          <ThemedText style={styles.cancelText}>Cancel</ThemedText>
-        </Pressable>
-      </View>
-    );
+    if (!permission.granted || !micPermission.granted) {
+      return (
+        <View style={[styles.container, styles.permissionContainer]}>
+          <Feather name="video-off" size={64} color={theme.textSecondary} />
+          <ThemedText style={styles.permissionTitle}>
+            Camera Access Required
+          </ThemedText>
+          <ThemedText style={styles.permissionText}>
+            We need camera and microphone access to start your live stream
+          </ThemedText>
+          {!permission.granted ? (
+            <Button onPress={requestPermission} style={styles.permissionButton}>
+              Enable Camera
+            </Button>
+          ) : null}
+          {!micPermission.granted ? (
+            <Button
+              onPress={requestMicPermission}
+              style={styles.permissionButton}
+            >
+              Enable Microphone
+            </Button>
+          ) : null}
+          <Pressable
+            onPress={() => navigation.goBack()}
+            style={styles.cancelButton}
+          >
+            <ThemedText style={styles.cancelText}>Cancel</ThemedText>
+          </Pressable>
+        </View>
+      );
+    }
   }
 
   return (
     <View style={styles.container}>
       {cameraError ? (
         <View style={[styles.webPlaceholder, { backgroundColor: "#000" }]}>
-          <Feather
-            name="video-off"
-            size={64}
-            color={Colors.light.textSecondary}
-          />
+          <Feather name="video-off" size={64} color={theme.textSecondary} />
           <ThemedText style={styles.webText}>
             {cameraError}
             {Platform.OS === "web"
@@ -331,22 +572,65 @@ export default function BroadcasterScreen() {
               : ""}
           </ThemedText>
         </View>
+      ) : Platform.OS === "web" ? (
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            backgroundColor: "#000",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              transform: facing === "front" ? "scaleX(-1)" : "none",
+            }}
+          />
+          {!localVideoTrack && !webPreviewActive ? (
+            <View style={styles.webPlaceholder}>
+              <Feather name="video" size={64} color={theme.textSecondary} />
+              <ThemedText style={styles.webText}>
+                {isLive ? "Starting camera..." : "Starting preview..."}
+              </ThemedText>
+            </View>
+          ) : null}
+        </div>
       ) : (
-        <CameraView
-          style={styles.camera}
-          facing={facing}
-          onMountError={(e: any) =>
-            setCameraError(
-              e?.nativeEvent?.message || e?.message || "Camera failed to start",
-            )
-          }
-        />
+        <View style={[styles.camera, { backgroundColor: "#000" }]}>
+          {isLive && localVideoTrack && VideoView ? (
+            <View style={styles.nativeVideoContainer}>
+              <VideoView
+                videoTrack={localVideoTrack}
+                style={StyleSheet.absoluteFill}
+                objectFit="cover"
+              />
+            </View>
+          ) : !isLive ? (
+            <CameraView style={StyleSheet.absoluteFill} facing={facing} />
+          ) : (
+            <View style={styles.webPlaceholder}>
+              <Feather name="video" size={64} color={theme.textSecondary} />
+              <ThemedText style={styles.webText}>
+                {isLive ? "Starting camera..." : "Starting preview..."}
+              </ThemedText>
+            </View>
+          )}
+        </View>
       )}
 
       <View style={styles.overlay}>
         <View style={[styles.topBar, { paddingTop: insets.top + Spacing.sm }]}>
           <Pressable onPress={handleEndStreamPress} style={styles.endButton}>
-            <Feather name="x" size={20} color={Colors.light.buttonText} />
+            <Feather name="x" size={20} color={theme.buttonText} />
             {isLive ? (
               <ThemedText style={styles.endText}>End</ThemedText>
             ) : null}
@@ -359,7 +643,7 @@ export default function BroadcasterScreen() {
                 <ThemedText style={styles.liveText}>LIVE</ThemedText>
               </View>
               <View style={styles.viewerBadge}>
-                <Feather name="eye" size={12} color={Colors.light.buttonText} />
+                <Feather name="eye" size={12} color={theme.buttonText} />
                 <ThemedText style={styles.viewerText}>
                   {viewerCount.toLocaleString()}
                 </ThemedText>
@@ -377,18 +661,14 @@ export default function BroadcasterScreen() {
         <View style={styles.sideControls}>
           {!isLive ? (
             <Pressable style={styles.controlButton} onPress={toggleCamera}>
-              <Feather
-                name="refresh-cw"
-                size={22}
-                color={Colors.light.buttonText}
-              />
+              <Feather name="refresh-cw" size={22} color={theme.buttonText} />
             </Pressable>
           ) : null}
           <Pressable style={styles.controlButton} onPress={toggleMute}>
             <Feather
               name={isMuted ? "mic-off" : "mic"}
               size={22}
-              color={isMuted ? Colors.light.primary : Colors.light.buttonText}
+              color={isMuted ? theme.primary : theme.buttonText}
             />
           </Pressable>
           <Pressable
@@ -397,7 +677,7 @@ export default function BroadcasterScreen() {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
             }
           >
-            <Feather name="sun" size={22} color={Colors.light.buttonText} />
+            <Feather name="sun" size={22} color={theme.buttonText} />
           </Pressable>
         </View>
 
@@ -407,10 +687,11 @@ export default function BroadcasterScreen() {
             <View
               style={[
                 styles.chatSection,
-                { bottom: isCarouselVisible ? 260 : 80 },
+                { bottom: isCarouselVisible ? 290 : 80 },
               ]}
             >
               <FlatList
+                ref={chatListRef}
                 data={liveChat.messages}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
@@ -429,14 +710,16 @@ export default function BroadcasterScreen() {
                 style={styles.chatList}
                 contentContainerStyle={styles.chatContent}
                 showsVerticalScrollIndicator={false}
-                inverted={liveChat.messages.length > 0}
+                onContentSizeChange={() =>
+                  chatListRef.current?.scrollToEnd({ animated: true })
+                }
               />
             </View>
             <Pressable
               style={[styles.addProductFab, { bottom: addProductsBottom }]}
               onPress={() => setShowProductSheet(true)}
             >
-              <Feather name="plus" size={22} color={Colors.light.buttonText} />
+              <Feather name="plus" size={22} color={theme.buttonText} />
             </Pressable>
           </>
         ) : null}
@@ -505,6 +788,7 @@ export default function BroadcasterScreen() {
             products={carouselProducts}
             onProductPress={handleProductPress}
             visible={showCarousel && carouselProducts.length > 0}
+            showBuyButton={false}
           />
         ) : null}
       </View>
@@ -545,13 +829,11 @@ const styles = StyleSheet.create({
   permissionTitle: {
     fontSize: 22,
     fontWeight: "700",
-    color: Colors.light.buttonText,
     marginTop: Spacing.xl,
     marginBottom: Spacing.sm,
   },
   permissionText: {
     fontSize: 14,
-    color: Colors.light.textSecondary,
     textAlign: "center",
     marginBottom: Spacing.xl,
   },
@@ -563,7 +845,6 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
   },
   cancelText: {
-    color: Colors.light.textSecondary,
     fontSize: 14,
   },
   webPlaceholder: {
@@ -572,7 +853,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   webText: {
-    color: Colors.light.textSecondary,
     fontSize: 14,
     marginTop: Spacing.lg,
     textAlign: "center",
@@ -580,6 +860,17 @@ const styles = StyleSheet.create({
   },
   camera: {
     ...StyleSheet.absoluteFillObject,
+  },
+  nativeVideoContainer: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#000",
+  },
+  nativeVideoPlaceholder: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
@@ -594,14 +885,12 @@ const styles = StyleSheet.create({
   endButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.light.primary,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
     gap: 4,
   },
   endText: {
-    color: Colors.light.buttonText,
     fontSize: 13,
     fontWeight: "600",
   },
@@ -613,7 +902,6 @@ const styles = StyleSheet.create({
   liveBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.light.primary,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: BorderRadius.xs,
@@ -623,10 +911,8 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: Colors.light.buttonText,
   },
   liveText: {
-    color: Colors.light.buttonText,
     fontSize: 11,
     fontWeight: "700",
     letterSpacing: 0.5,
@@ -641,7 +927,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   viewerText: {
-    color: Colors.light.buttonText,
     fontSize: 12,
     fontWeight: "600",
   },
@@ -652,7 +937,6 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.xs,
   },
   timer: {
-    color: Colors.light.buttonText,
     fontSize: 14,
     fontWeight: "600",
     fontVariant: ["tabular-nums"],
@@ -669,7 +953,6 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: Colors.light.primary,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 50,
@@ -709,18 +992,13 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
   },
-  cameraOptionActive: {
-    backgroundColor: Colors.light.primary,
-  },
+  cameraOptionActive: {},
   cameraOptionText: {
-    color: Colors.light.buttonText,
     fontSize: 13,
     fontWeight: "700",
     letterSpacing: 0.2,
   },
-  cameraOptionTextActive: {
-    color: Colors.light.buttonText,
-  },
+  cameraOptionTextActive: {},
   addProductSection: {
     width: "100%",
     paddingHorizontal: Spacing.lg,
@@ -737,7 +1015,6 @@ const styles = StyleSheet.create({
     marginRight: Spacing.sm,
   },
   addProductText: {
-    color: Colors.light.buttonText,
     fontSize: 16,
     fontWeight: "600",
   },
@@ -745,14 +1022,12 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: Colors.light.primary,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Platform.OS === "web" ? Spacing.xl : Spacing["3xl"],
     ...Shadows.lg,
   },
   goLiveText: {
-    color: Colors.light.buttonText,
     fontSize: 16,
     fontWeight: "800",
     letterSpacing: 1,
@@ -780,13 +1055,11 @@ const styles = StyleSheet.create({
     maxWidth: "85%",
   },
   chatUserName: {
-    color: Colors.light.primary,
     fontSize: 12,
     fontWeight: "700",
     marginRight: 4,
   },
   chatText: {
-    color: Colors.light.buttonText,
     fontSize: 13,
     flexShrink: 1,
     lineHeight: 18,

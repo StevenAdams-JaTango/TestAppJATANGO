@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { View, StyleSheet, Modal, Pressable, Dimensions } from "react-native";
 import WheelColorPicker from "react-native-wheel-color-picker";
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, BorderRadius, Spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { BorderRadius, Spacing } from "@/constants/theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -19,6 +20,7 @@ export function ColorPicker({
   onColorSelected,
   onClose,
 }: ColorPickerProps) {
+  const { theme } = useTheme();
   const [selectedColor, setSelectedColor] = useState(initialColor);
 
   const handleConfirm = () => {
@@ -35,7 +37,9 @@ export function ColorPicker({
     >
       <View style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={styles.container}>
+        <View
+          style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
+        >
           <View style={styles.header}>
             <ThemedText style={styles.title}>Pick a Color</ThemedText>
             <Pressable onPress={onClose}>
@@ -54,7 +58,12 @@ export function ColorPicker({
             />
           </View>
 
-          <View style={styles.preview}>
+          <View
+            style={[
+              styles.preview,
+              { backgroundColor: theme.backgroundSecondary },
+            ]}
+          >
             <View
               style={[styles.previewColor, { backgroundColor: selectedColor }]}
             />
@@ -62,10 +71,23 @@ export function ColorPicker({
           </View>
 
           <View style={styles.actions}>
-            <Pressable style={styles.cancelButton} onPress={onClose}>
-              <ThemedText style={styles.cancelText}>Cancel</ThemedText>
+            <Pressable
+              style={[
+                styles.cancelButton,
+                { borderColor: theme.textSecondary },
+              ]}
+              onPress={onClose}
+            >
+              <ThemedText
+                style={[styles.cancelText, { color: theme.textSecondary }]}
+              >
+                Cancel
+              </ThemedText>
             </Pressable>
-            <Pressable style={styles.confirmButton} onPress={handleConfirm}>
+            <Pressable
+              style={[styles.confirmButton, { backgroundColor: theme.primary }]}
+              onPress={handleConfirm}
+            >
               <ThemedText style={styles.confirmText}>Confirm</ThemedText>
             </Pressable>
           </View>
@@ -91,7 +113,6 @@ const styles = StyleSheet.create({
   },
   container: {
     width: SCREEN_WIDTH - 40,
-    backgroundColor: "#fff",
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
   },
@@ -107,7 +128,6 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     fontSize: 24,
-    color: Colors.light.textSecondary,
   },
   pickerContainer: {
     height: 300,
@@ -119,7 +139,6 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     marginBottom: Spacing.lg,
     padding: Spacing.md,
-    backgroundColor: Colors.light.backgroundSecondary,
     borderRadius: BorderRadius.md,
   },
   previewColor: {
@@ -143,19 +162,16 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: Colors.light.textSecondary,
     alignItems: "center",
   },
   cancelText: {
     fontSize: 16,
     fontWeight: "600",
-    color: Colors.light.textSecondary,
   },
   confirmButton: {
     flex: 1,
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
-    backgroundColor: Colors.light.primary,
     alignItems: "center",
   },
   confirmText: {

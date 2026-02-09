@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import {
   useNavigation,
@@ -25,8 +24,10 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { LivePreview } from "@/components/LivePreview";
+import { CartIcon } from "@/components/CartIcon";
 import { useLiveRooms } from "@/hooks/useLiveRooms";
-import { Spacing, BorderRadius, Colors, Shadows } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { HomeStackParamList } from "@/navigation/HomeStackNavigator";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { supabase } from "@/lib/supabase";
@@ -47,8 +48,8 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const LIVE_CARD_WIDTH = (SCREEN_WIDTH - Spacing.lg * 2 - Spacing.md) / 2;
 
 export default function HomeScreen() {
+  const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const isFocused = useIsFocused();
@@ -112,163 +113,231 @@ export default function HomeScreen() {
   const displayedRooms = liveRooms.slice(0, 4); // Max 4 live streams
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{
-        paddingTop: headerHeight,
-        paddingBottom: tabBarHeight + Spacing.xl,
-      }}
-      scrollIndicatorInsets={{ bottom: insets.bottom }}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor={Colors.light.primary}
-        />
-      }
-    >
+    <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       {/* Header */}
-      <Animated.View entering={FadeIn.duration(400)} style={styles.header}>
-        <ThemedText style={styles.headerTitle}>Live Now</ThemedText>
-        {hasLiveStreams && (
-          <View style={styles.liveCountBadge}>
-            <View style={styles.liveDot} />
-            <ThemedText style={styles.liveCountText}>
-              {liveRooms.length}
-            </ThemedText>
-          </View>
-        )}
-      </Animated.View>
-
-      {/* Live Streams Grid or Empty State */}
-      {hasLiveStreams ? (
-        <Animated.View
-          entering={FadeInDown.delay(200).duration(500)}
-          style={styles.liveGrid}
-        >
-          {displayedRooms.map((room, index) => (
-            <Pressable
-              key={room.name}
-              style={styles.liveCard}
-              onPress={() => handleLiveRoomPress(room.name)}
-            >
-              <View style={styles.liveCardGradient}>
-                {room.thumbnailUrl ? (
-                  <Image
-                    source={{ uri: room.thumbnailUrl }}
-                    style={styles.liveThumbnail}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <LivePreview
-                    roomName={room.name}
-                    style={styles.livePreview}
-                  />
-                )}
-                <LinearGradient
-                  colors={["transparent", "rgba(0,0,0,0.8)"]}
-                  style={styles.liveCardOverlay}
-                >
-                  <View style={styles.liveCardBadge}>
-                    <View style={styles.liveDotSmall} />
-                    <ThemedText style={styles.liveCardBadgeText}>
-                      LIVE
-                    </ThemedText>
-                  </View>
-                  <View style={styles.liveCardFooter}>
-                    <ThemedText style={styles.liveCardTitle} numberOfLines={1}>
-                      {room.title || "Live Show"}
-                    </ThemedText>
-                    <ThemedText style={styles.liveCardViewers}>
-                      {room.numParticipants} watching
-                    </ThemedText>
-                  </View>
-                </LinearGradient>
-              </View>
-            </Pressable>
-          ))}
-        </Animated.View>
-      ) : (
-        <Animated.View
-          entering={FadeInDown.delay(200).duration(500)}
-          style={styles.emptyState}
-        >
-          <View style={styles.emptyCard}>
-            <View style={styles.emptyIconContainer}>
-              <Feather name="video" size={32} color={Colors.light.secondary} />
-            </View>
-            <ThemedText style={styles.emptyTitle}>No Live Streams</ThemedText>
-            <ThemedText style={styles.emptySubtitle}>
-              Check back soon or start your own stream!
-            </ThemedText>
-            <Pressable style={styles.emptyStartBtn} onPress={handleGoLivePress}>
-              <Feather name="radio" size={16} color={Colors.light.buttonText} />
-              <ThemedText style={styles.emptyStartBtnText}>Go Live</ThemedText>
-            </Pressable>
-          </View>
-        </Animated.View>
-      )}
-
-      {/* Stores Section */}
-      {stores.length > 0 && (
-        <Animated.View
-          entering={FadeInDown.delay(400).duration(500)}
-          style={styles.storesSection}
-        >
-          <ThemedText
-            style={[styles.sectionTitle, { paddingHorizontal: Spacing.lg }]}
-          >
-            Stores
+      <Animated.View
+        entering={FadeIn.duration(400)}
+        style={[styles.header, { paddingTop: insets.top + Spacing.lg }]}
+      >
+        <View style={styles.headerLeft}>
+          <ThemedText style={[styles.headerTitle, { color: theme.secondary }]}>
+            Live Now
           </ThemedText>
-          <FlatList
-            data={stores}
-            keyExtractor={(item) => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.storesList}
-            renderItem={({ item }) => (
+          {hasLiveStreams && (
+            <View style={styles.liveCountBadge}>
+              <View style={styles.liveDot} />
+              <ThemedText style={styles.liveCountText}>
+                {liveRooms.length}
+              </ThemedText>
+            </View>
+          )}
+        </View>
+        <CartIcon />
+      </Animated.View>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={{
+          paddingBottom: tabBarHeight + Spacing.xl,
+        }}
+        scrollIndicatorInsets={{ bottom: insets.bottom }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.primary}
+          />
+        }
+      >
+        {/* Live Streams Grid or Empty State */}
+        {hasLiveStreams ? (
+          <Animated.View
+            entering={FadeInDown.delay(200).duration(500)}
+            style={styles.liveGrid}
+          >
+            {displayedRooms.map((room, index) => (
               <Pressable
-                style={styles.storeCard}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  navigation.navigate("StoreProfile", { storeId: item.id });
-                }}
+                key={room.name}
+                style={styles.liveCard}
+                onPress={() => handleLiveRoomPress(room.name)}
               >
-                <View style={styles.storeAvatar}>
-                  {item.avatar_url ? (
+                <View
+                  style={[
+                    styles.liveCardGradient,
+                    { backgroundColor: theme.backgroundSecondary },
+                  ]}
+                >
+                  {room.thumbnailUrl ? (
                     <Image
-                      source={{ uri: item.avatar_url }}
-                      style={styles.storeAvatarImage}
+                      source={{ uri: room.thumbnailUrl }}
+                      style={styles.liveThumbnail}
+                      resizeMode="cover"
                     />
                   ) : (
-                    <Feather
-                      name="shopping-bag"
-                      size={24}
-                      color={Colors.light.textSecondary}
+                    <LivePreview
+                      roomName={room.name}
+                      style={styles.livePreview}
                     />
                   )}
+                  <LinearGradient
+                    colors={["transparent", "rgba(0,0,0,0.8)"]}
+                    style={styles.liveCardOverlay}
+                  >
+                    <View style={styles.liveCardBadge}>
+                      <View style={styles.liveDotSmall} />
+                      <ThemedText style={styles.liveCardBadgeText}>
+                        LIVE
+                      </ThemedText>
+                    </View>
+                    <View style={styles.liveCardFooter}>
+                      <ThemedText
+                        style={styles.liveCardTitle}
+                        numberOfLines={1}
+                      >
+                        {room.title || "Live Show"}
+                      </ThemedText>
+                      <ThemedText style={styles.liveCardViewers}>
+                        {room.numParticipants} watching
+                      </ThemedText>
+                    </View>
+                  </LinearGradient>
                 </View>
-                <ThemedText style={styles.storeName} numberOfLines={2}>
-                  {item.name}
-                </ThemedText>
-                <ThemedText style={styles.storeProductCount}>
-                  {item.productCount}{" "}
-                  {item.productCount === 1 ? "product" : "products"}
+              </Pressable>
+            ))}
+          </Animated.View>
+        ) : (
+          <Animated.View
+            entering={FadeInDown.delay(200).duration(500)}
+            style={styles.emptyState}
+          >
+            <View
+              style={[
+                styles.emptyCard,
+                {
+                  backgroundColor: theme.backgroundSecondary,
+                  borderColor: theme.border,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.emptyIconContainer,
+                  { backgroundColor: theme.backgroundTertiary },
+                ]}
+              >
+                <Feather name="video" size={32} color={theme.secondary} />
+              </View>
+              <ThemedText style={[styles.emptyTitle, { color: theme.text }]}>
+                No Live Streams
+              </ThemedText>
+              <ThemedText
+                style={[styles.emptySubtitle, { color: theme.textSecondary }]}
+              >
+                Check back soon or start your own stream!
+              </ThemedText>
+              <Pressable
+                style={[
+                  styles.emptyStartBtn,
+                  { backgroundColor: theme.primary },
+                ]}
+                onPress={handleGoLivePress}
+              >
+                <Feather name="radio" size={16} color={theme.buttonText} />
+                <ThemedText
+                  style={[
+                    styles.emptyStartBtnText,
+                    { color: theme.buttonText },
+                  ]}
+                >
+                  Go Live
                 </ThemedText>
               </Pressable>
-            )}
-          />
-        </Animated.View>
-      )}
-    </ScrollView>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Stores Section */}
+        {stores.length > 0 && (
+          <Animated.View
+            entering={FadeInDown.delay(400).duration(500)}
+            style={styles.storesSection}
+          >
+            <ThemedText
+              style={[
+                styles.sectionTitle,
+                { paddingHorizontal: Spacing.lg, color: theme.text },
+              ]}
+            >
+              Stores
+            </ThemedText>
+            <FlatList
+              data={stores}
+              keyExtractor={(item) => item.id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.storesList}
+              renderItem={({ item }) => (
+                <Pressable
+                  style={[
+                    styles.storeCard,
+                    { backgroundColor: theme.backgroundSecondary },
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    navigation.navigate("StoreProfile", { storeId: item.id });
+                  }}
+                >
+                  <View
+                    style={[
+                      styles.storeAvatar,
+                      { backgroundColor: theme.backgroundTertiary },
+                    ]}
+                  >
+                    {item.avatar_url ? (
+                      <Image
+                        source={{ uri: item.avatar_url }}
+                        style={styles.storeAvatarImage}
+                      />
+                    ) : (
+                      <Feather
+                        name="shopping-bag"
+                        size={24}
+                        color={theme.textSecondary}
+                      />
+                    )}
+                  </View>
+                  <ThemedText
+                    style={[styles.storeName, { color: theme.text }]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {item.name}
+                  </ThemedText>
+                  <ThemedText
+                    style={[
+                      styles.storeProductCount,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    {item.productCount}{" "}
+                    {item.productCount === 1 ? "product" : "products"}
+                  </ThemedText>
+                </Pressable>
+              )}
+            />
+          </Animated.View>
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.backgroundRoot,
+  },
+  scrollView: {
+    flex: 1,
   },
   header: {
     flexDirection: "row",
@@ -281,8 +350,12 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 28,
     fontWeight: "800",
-    color: Colors.light.secondary,
     letterSpacing: -0.5,
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
   },
   liveCountBadge: {
     flexDirection: "row",
@@ -318,7 +391,6 @@ const styles = StyleSheet.create({
     height: LIVE_CARD_WIDTH * 1.3,
     borderRadius: BorderRadius.xl,
     overflow: "hidden",
-    backgroundColor: Colors.light.backgroundSecondary,
   },
   livePreview: {
     position: "absolute",
@@ -405,15 +477,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     minHeight: 180,
     justifyContent: "center",
-    backgroundColor: Colors.light.backgroundSecondary,
     borderWidth: 1,
-    borderColor: Colors.light.border,
   },
   emptyIconContainer: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: Colors.light.backgroundTertiary,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.sm,
@@ -421,12 +490,10 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: Colors.light.text,
     marginTop: Spacing.sm,
   },
   emptySubtitle: {
     fontSize: 13,
-    color: Colors.light.textSecondary,
     marginTop: Spacing.xs,
     textAlign: "center",
     maxWidth: 280,
@@ -435,21 +502,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    backgroundColor: Colors.light.primary,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
     marginTop: Spacing.lg,
   },
   emptyStartBtnText: {
-    color: Colors.light.buttonText,
     fontSize: 14,
     fontWeight: "700",
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: Colors.light.text,
     marginBottom: Spacing.md,
   },
   storesSection: {
@@ -460,9 +524,8 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   storeCard: {
-    width: 120,
+    width: 140,
     alignItems: "center",
-    backgroundColor: Colors.light.backgroundSecondary,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     ...Shadows.sm,
@@ -471,7 +534,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: Colors.light.backgroundTertiary,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.sm,
@@ -485,13 +547,11 @@ const styles = StyleSheet.create({
   storeName: {
     fontSize: 13,
     fontWeight: "600",
-    color: Colors.light.text,
     textAlign: "center",
     marginBottom: 2,
   },
   storeProductCount: {
     fontSize: 11,
-    color: Colors.light.textSecondary,
     textAlign: "center",
   },
 });

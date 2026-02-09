@@ -12,7 +12,7 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Fonts, Colors } from "@/constants/theme";
+import { Spacing, BorderRadius, Fonts } from "@/constants/theme";
 
 export type ErrorFallbackProps = {
   error: Error;
@@ -58,11 +58,19 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
       ) : null}
 
       <View style={styles.content}>
-        <View style={styles.iconContainer}>
-          <Feather name="alert-triangle" size={48} color={Colors.light.primary} />
+        <View
+          style={[
+            styles.iconContainer,
+            { backgroundColor: theme.backgroundSecondary },
+          ]}
+        >
+          <Feather name="alert-triangle" size={48} color={theme.primary} />
         </View>
         
-        <ThemedText type="h1" style={styles.title}>
+        <ThemedText
+          type="h1"
+          style={[styles.title, { color: theme.secondary }]}
+        >
           Oops! Something went wrong
         </ThemedText>
 
@@ -75,16 +83,17 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
           style={({ pressed }) => [
             styles.button,
             {
-              backgroundColor: Colors.light.primary,
+              backgroundColor: theme.primary,
+              shadowColor: theme.secondary,
               opacity: pressed ? 0.9 : 1,
               transform: [{ scale: pressed ? 0.98 : 1 }],
             },
           ]}
         >
-          <Feather name="refresh-cw" size={18} color={Colors.light.buttonText} />
+          <Feather name="refresh-cw" size={18} color={theme.buttonText} />
           <ThemedText
             type="body"
-            style={[styles.buttonText, { color: Colors.light.buttonText }]}
+            style={[styles.buttonText, { color: theme.buttonText }]}
           >
             Restart JaTango
           </ThemedText>
@@ -168,7 +177,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: Colors.light.backgroundSecondary,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.sm,
@@ -176,7 +184,6 @@ const styles = StyleSheet.create({
   title: {
     textAlign: "center",
     lineHeight: 40,
-    color: Colors.light.secondary,
   },
   message: {
     textAlign: "center",
@@ -204,7 +211,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing["2xl"],
     minWidth: 200,
     justifyContent: "center",
-    shadowColor: Colors.light.secondary,
     shadowOffset: {
       width: 0,
       height: 2,
@@ -237,7 +243,6 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
   },
   modalTitle: {
     fontWeight: "600",

@@ -14,8 +14,9 @@ import { Feather } from "@expo/vector-icons";
 import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
+import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
-import { Colors, BorderRadius, Spacing, Shadows } from "@/constants/theme";
+import { BorderRadius, Spacing, Shadows } from "@/constants/theme";
 
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
@@ -28,6 +29,7 @@ export default function AuthScreen() {
     cancelVerification,
     resendVerificationEmail,
   } = useAuth();
+  const { theme } = useTheme();
 
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
@@ -108,53 +110,79 @@ export default function AuthScreen() {
   if (pendingVerification && pendingEmail) {
     return (
       <KeyboardAvoidingView
-        style={[styles.container, { paddingTop: insets.top + 40 }]}
+        style={[
+          styles.container,
+          {
+            paddingTop: insets.top + 40,
+            backgroundColor: theme.backgroundRoot,
+          },
+        ]}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <Animated.View entering={FadeIn} style={styles.verificationContainer}>
-          <View style={styles.emailIconContainer}>
-            <Feather name="mail" size={48} color={Colors.light.primary} />
+          <View
+            style={[
+              styles.emailIconContainer,
+              { backgroundColor: theme.primary + "15" },
+            ]}
+          >
+            <Feather name="mail" size={48} color={theme.primary} />
           </View>
 
-          <ThemedText style={styles.verificationTitle}>
+          <ThemedText style={[styles.verificationTitle, { color: theme.text }]}>
             Check your email
           </ThemedText>
 
-          <ThemedText style={styles.verificationSubtitle}>
+          <ThemedText
+            style={[styles.verificationSubtitle, { color: theme.secondary }]}
+          >
             We&apos;ve sent a verification link to
           </ThemedText>
 
-          <ThemedText style={styles.verificationEmail}>
+          <ThemedText
+            style={[styles.verificationEmail, { color: theme.primary }]}
+          >
             {pendingEmail}
           </ThemedText>
 
-          <ThemedText style={styles.verificationHint}>
+          <ThemedText
+            style={[styles.verificationHint, { color: theme.secondary }]}
+          >
             Click the link in the email to verify your account. This page will
             automatically update once you&apos;re verified.
           </ThemedText>
 
-          <View style={styles.verificationLoader}>
-            <ActivityIndicator size="small" color={Colors.light.primary} />
-            <ThemedText style={styles.verificationLoaderText}>
+          <View
+            style={[
+              styles.verificationLoader,
+              { backgroundColor: theme.primary + "10" },
+            ]}
+          >
+            <ActivityIndicator size="small" color={theme.primary} />
+            <ThemedText
+              style={[styles.verificationLoaderText, { color: theme.primary }]}
+            >
               Waiting for verification...
             </ThemedText>
           </View>
 
           <Pressable
-            style={[styles.resendButton, resending && styles.buttonDisabled]}
+            style={[
+              styles.resendButton,
+              { borderColor: theme.primary },
+              resending && styles.buttonDisabled,
+            ]}
             onPress={handleResendEmail}
             disabled={resending}
           >
             {resending ? (
-              <ActivityIndicator size="small" color={Colors.light.primary} />
+              <ActivityIndicator size="small" color={theme.primary} />
             ) : (
               <>
-                <Feather
-                  name="refresh-cw"
-                  size={16}
-                  color={Colors.light.primary}
-                />
-                <ThemedText style={styles.resendButtonText}>
+                <Feather name="refresh-cw" size={16} color={theme.primary} />
+                <ThemedText
+                  style={[styles.resendButtonText, { color: theme.primary }]}
+                >
                   Resend verification email
                 </ThemedText>
               </>
@@ -165,7 +193,9 @@ export default function AuthScreen() {
             style={styles.cancelButton}
             onPress={handleCancelVerification}
           >
-            <ThemedText style={styles.cancelButtonText}>
+            <ThemedText
+              style={[styles.cancelButtonText, { color: theme.secondary }]}
+            >
               Use a different email
             </ThemedText>
           </Pressable>
@@ -176,29 +206,49 @@ export default function AuthScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { paddingTop: insets.top + 40 }]}
+      style={[
+        styles.container,
+        {
+          paddingTop: insets.top + 40,
+          backgroundColor: theme.backgroundRoot,
+        },
+      ]}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <Animated.View entering={FadeInDown.delay(100)} style={styles.header}>
-        <View style={styles.logoContainer}>
-          <Feather name="shopping-bag" size={48} color={Colors.light.primary} />
+        <View
+          style={[
+            styles.logoContainer,
+            { backgroundColor: theme.primary + "20" },
+          ]}
+        >
+          <Feather name="shopping-bag" size={48} color={theme.primary} />
         </View>
-        <ThemedText style={styles.title}>JaTango</ThemedText>
-        <ThemedText style={styles.subtitle}>Live Shopping</ThemedText>
+        <ThemedText style={[styles.title, { color: theme.text }]}>
+          JaTango
+        </ThemedText>
+        <ThemedText style={[styles.subtitle, { color: theme.secondary }]}>
+          Live Shopping
+        </ThemedText>
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(200)} style={styles.form}>
-        <View style={styles.inputContainer}>
+        <View
+          style={[
+            styles.inputContainer,
+            { backgroundColor: theme.backgroundSecondary },
+          ]}
+        >
           <Feather
             name="mail"
             size={20}
-            color={Colors.light.secondary}
+            color={theme.secondary}
             style={styles.inputIcon}
           />
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: theme.text }]}
             placeholder="Email"
-            placeholderTextColor={Colors.light.secondary}
+            placeholderTextColor={theme.secondary}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -207,17 +257,22 @@ export default function AuthScreen() {
           />
         </View>
 
-        <View style={styles.inputContainer}>
+        <View
+          style={[
+            styles.inputContainer,
+            { backgroundColor: theme.backgroundSecondary },
+          ]}
+        >
           <Feather
             name="lock"
             size={20}
-            color={Colors.light.secondary}
+            color={theme.secondary}
             style={styles.inputIcon}
           />
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: theme.text }]}
             placeholder="Password"
-            placeholderTextColor={Colors.light.secondary}
+            placeholderTextColor={theme.secondary}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -226,14 +281,20 @@ export default function AuthScreen() {
         </View>
 
         <Pressable
-          style={[styles.button, loading && styles.buttonDisabled]}
+          style={[
+            styles.button,
+            { backgroundColor: theme.primary },
+            loading && styles.buttonDisabled,
+          ]}
           onPress={handleSubmit}
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color={Colors.light.buttonText} />
+            <ActivityIndicator color={theme.buttonText} />
           ) : (
-            <ThemedText style={styles.buttonText}>
+            <ThemedText
+              style={[styles.buttonText, { color: theme.buttonText }]}
+            >
               {isLogin ? "Sign In" : "Create Account"}
             </ThemedText>
           )}
@@ -243,7 +304,7 @@ export default function AuthScreen() {
           style={styles.switchButton}
           onPress={() => setIsLogin(!isLogin)}
         >
-          <ThemedText style={styles.switchText}>
+          <ThemedText style={[styles.switchText, { color: theme.primary }]}>
             {isLogin
               ? "Don't have an account? Sign Up"
               : "Already have an account? Sign In"}
@@ -252,7 +313,7 @@ export default function AuthScreen() {
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(300)} style={styles.footer}>
-        <ThemedText style={styles.footerText}>
+        <ThemedText style={[styles.footerText, { color: theme.secondary }]}>
           By continuing, you agree to our Terms of Service
         </ThemedText>
       </Animated.View>
@@ -263,7 +324,6 @@ export default function AuthScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.backgroundRoot,
     paddingHorizontal: Spacing.xl,
   },
   header: {
@@ -274,7 +334,6 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: `${Colors.light.primary}20`,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.lg,
@@ -282,12 +341,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: "700",
-    color: Colors.light.text,
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 16,
-    color: Colors.light.secondary,
   },
   form: {
     gap: Spacing.md,
@@ -295,7 +352,6 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.light.backgroundSecondary,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     height: 56,
@@ -306,10 +362,8 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: Colors.light.text,
   },
   button: {
-    backgroundColor: Colors.light.primary,
     height: 56,
     borderRadius: BorderRadius.md,
     alignItems: "center",
@@ -320,7 +374,6 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   buttonText: {
-    color: Colors.light.buttonText,
     fontSize: 16,
     fontWeight: "600",
   },
@@ -329,7 +382,6 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
   },
   switchText: {
-    color: Colors.light.primary,
     fontSize: 14,
   },
   footer: {
@@ -341,7 +393,6 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 12,
-    color: Colors.light.secondary,
     textAlign: "center",
   },
   // Email verification styles
@@ -355,7 +406,6 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: `${Colors.light.primary}15`,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.xl,
@@ -364,26 +414,22 @@ const styles = StyleSheet.create({
   verificationTitle: {
     fontSize: 28,
     fontWeight: "700",
-    color: Colors.light.text,
     marginBottom: Spacing.sm,
     textAlign: "center",
   },
   verificationSubtitle: {
     fontSize: 16,
-    color: Colors.light.secondary,
     textAlign: "center",
   },
   verificationEmail: {
     fontSize: 16,
     fontWeight: "600",
-    color: Colors.light.primary,
     marginTop: Spacing.xs,
     marginBottom: Spacing.lg,
     textAlign: "center",
   },
   verificationHint: {
     fontSize: 14,
-    color: Colors.light.secondary,
     textAlign: "center",
     lineHeight: 20,
     marginBottom: Spacing.xl,
@@ -395,12 +441,10 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginBottom: Spacing.xl,
     padding: Spacing.md,
-    backgroundColor: `${Colors.light.primary}10`,
     borderRadius: BorderRadius.md,
   },
   verificationLoaderText: {
     fontSize: 14,
-    color: Colors.light.primary,
     fontWeight: "500",
   },
   resendButton: {
@@ -410,13 +454,11 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
     borderWidth: 1,
-    borderColor: Colors.light.primary,
     borderRadius: BorderRadius.full,
     marginBottom: Spacing.md,
   },
   resendButtonText: {
     fontSize: 14,
-    color: Colors.light.primary,
     fontWeight: "600",
   },
   cancelButton: {
@@ -424,6 +466,5 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: 14,
-    color: Colors.light.secondary,
   },
 });

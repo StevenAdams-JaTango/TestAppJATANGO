@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { FlatList, RefreshControl, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -9,12 +9,12 @@ import Animated, { FadeInRight } from "react-native-reanimated";
 
 import { OrderCard } from "@/components/OrderCard";
 import { EmptyState } from "@/components/EmptyState";
-import { ProductDetailSheet } from "@/components/ProductDetailSheet";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, Colors } from "@/constants/theme";
-import { mockOrders, mockProducts } from "@/data/mockData";
+import { useAuth } from "@/contexts/AuthContext";
+import { checkoutService } from "@/services/checkout";
+import { Spacing } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
-import { Order, Product } from "@/types";
+import { Order } from "@/types";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -24,44 +24,33 @@ export default function PurchasesScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
+  const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
-  const [orders, setOrders] = useState<Order[]>(mockOrders);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [showProductSheet, setShowProductSheet] = useState(false);
+  const [orders, setOrders] = useState<Order[]>([]);
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1500);
-  }, []);
-
-  const handleOrderPress = (order: Order) => {
-    const product = mockProducts.find((p) => p.id === order.productId);
-    if (product) {
-      setSelectedProduct(product);
-      setShowProductSheet(true);
+  const loadOrders = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const fetched = await checkoutService.fetchOrders(user.id);
+      setOrders(fetched);
+    } catch (err) {
+      console.error("[PurchasesScreen] Failed to load orders:", err);
     }
-  };
+  }, [user?.id]);
 
-  const handleCloseProductSheet = () => {
-    setShowProductSheet(false);
-    setSelectedProduct(null);
-  };
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
 
-  const handleAddToCart = (product: Product) => {
-    console.log("Add to cart:", product.id);
-    handleCloseProductSheet();
-  };
-
-  const handleBuyNow = (product: Product) => {
-    console.log("Buy now:", product.id);
-    handleCloseProductSheet();
-  };
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadOrders();
+    setRefreshing(false);
+  }, [loadOrders]);
 
   const renderItem = ({ item, index }: { item: Order; index: number }) => (
     <Animated.View entering={FadeInRight.delay(index * 100).springify()}>
-      <OrderCard order={item} onPress={() => handleOrderPress(item)} />
+      <OrderCard order={item} onPress={() => {}} />
     </Animated.View>
   );
 
@@ -95,20 +84,12 @@ export default function PurchasesScreen() {
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          tintColor={Colors.light.primary}
-          colors={[Colors.light.primary]}
+          tintColor={theme.primary}
+          colors={[theme.primary]}
         />
       }
       showsVerticalScrollIndicator={false}
-    >
-      <ProductDetailSheet
-        product={selectedProduct}
-        visible={showProductSheet}
-        onClose={handleCloseProductSheet}
-        onAddToCart={handleAddToCart}
-        onBuyNow={handleBuyNow}
-      />
-    </FlatList>
+    />
   );
 }
 

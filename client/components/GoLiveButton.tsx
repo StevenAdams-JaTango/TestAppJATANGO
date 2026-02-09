@@ -11,7 +11,8 @@ import Animated, {
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 
-import { Colors, Shadows } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { Shadows } from "@/constants/theme";
 
 interface GoLiveButtonProps {
   onPress: () => void;
@@ -20,6 +21,7 @@ interface GoLiveButtonProps {
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function GoLiveButton({ onPress }: GoLiveButtonProps) {
+  const { theme } = useTheme();
   const scale = useSharedValue(1);
   const pulseScale = useSharedValue(1);
   const pulseOpacity = useSharedValue(0.4);
@@ -67,15 +69,25 @@ export function GoLiveButton({ onPress }: GoLiveButtonProps) {
 
   return (
     <View style={styles.container}>
-      <Animated.View style={[styles.pulse, animatedPulseStyle]} />
+      <Animated.View
+        style={[
+          styles.pulse,
+          { backgroundColor: theme.primary },
+          animatedPulseStyle,
+        ]}
+      />
       <AnimatedPressable
         onPress={handlePress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        style={[styles.button, animatedButtonStyle]}
+        style={[
+          styles.button,
+          { backgroundColor: theme.primary },
+          animatedButtonStyle,
+        ]}
         testID="go-live-button"
       >
-        <Feather name="video" size={24} color={Colors.light.buttonText} />
+        <Feather name="video" size={24} color={theme.buttonText} />
       </AnimatedPressable>
     </View>
   );
@@ -93,13 +105,11 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: Colors.light.primary,
   },
   button: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: Colors.light.primary,
     alignItems: "center",
     justifyContent: "center",
     ...Shadows.lg,

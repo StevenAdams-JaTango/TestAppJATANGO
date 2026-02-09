@@ -42,6 +42,14 @@ export const linking: LinkingOptions<any> = {
       Broadcaster: "broadcast/:draftId?",
       ProductDetail: "product/:productId",
       Settings: "settings",
+      EndedShow: {
+        path: "EndedShow",
+        parse: { showId: (id: string) => id },
+      },
+      ShowSummary: {
+        path: "ShowSummary",
+        parse: { showId: (id: string) => id },
+      },
     },
   },
 };

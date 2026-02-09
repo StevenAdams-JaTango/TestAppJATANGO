@@ -10,21 +10,20 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import * as Haptics from "expo-haptics";
 
 import { EmptyState } from "@/components/EmptyState";
 import { ProductDetailSheet } from "@/components/ProductDetailSheet";
 import { ProductCard } from "@/components/ProductCard";
+import { CartIcon } from "@/components/CartIcon";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, Colors, BorderRadius, Shadows } from "@/constants/theme";
+import { Spacing, BorderRadius } from "@/constants/theme";
 import { productsService } from "@/services/products";
 import { Product } from "@/types";
 
 export default function ExploreScreen() {
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
@@ -70,13 +69,13 @@ export default function ExploreScreen() {
     setSelectedProduct(null);
   };
 
-  const handleAddToCart = (product: Product) => {
-    console.log("Add to cart:", product.id);
+  const handleAddToCart = () => {
+    // Cart is handled by ProductDetailSheet via CartContext
     handleCloseProductSheet();
   };
 
-  const handleBuyNow = (product: Product) => {
-    console.log("Buy now:", product.id);
+  const handleBuyNow = () => {
+    // Buy now not implemented yet - just close sheet for now
     handleCloseProductSheet();
   };
 
@@ -95,8 +94,13 @@ export default function ExploreScreen() {
   const renderEmpty = () => {
     if (loading) {
       return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.light.primary} />
+        <View
+          style={[
+            styles.searchContainer,
+            { paddingTop: insets.top + Spacing.md },
+          ]}
+        >
+          <ActivityIndicator size="large" color={theme.primary} />
         </View>
       );
     }
@@ -119,7 +123,7 @@ export default function ExploreScreen() {
         style={[
           styles.searchContainer,
           {
-            paddingTop: headerHeight + Spacing.sm,
+            paddingTop: Math.max(insets.top, Spacing.lg) + Spacing.md,
             backgroundColor: theme.backgroundRoot,
           },
         ]}
@@ -129,11 +133,11 @@ export default function ExploreScreen() {
             styles.searchBar,
             {
               backgroundColor: theme.backgroundSecondary,
-              borderColor: Colors.light.border,
+              borderColor: theme.border,
             },
           ]}
         >
-          <Feather name="search" size={20} color={Colors.light.secondary} />
+          <Feather name="search" size={20} color={theme.secondary} />
           <TextInput
             style={[styles.searchInput, { color: theme.text }]}
             placeholder="Search products..."
@@ -148,6 +152,7 @@ export default function ExploreScreen() {
             </Pressable>
           ) : null}
         </View>
+        <CartIcon />
       </View>
       <FlatList
         style={styles.list}
@@ -169,8 +174,8 @@ export default function ExploreScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={Colors.light.primary}
-            colors={[Colors.light.primary]}
+            tintColor={theme.primary}
+            colors={[theme.primary]}
           />
         }
         showsVerticalScrollIndicator={false}
@@ -192,11 +197,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.md,
-    zIndex: 1,
+    paddingBottom: Spacing.sm,
+    paddingTop: Spacing.sm,
+    gap: Spacing.sm,
   },
   searchBar: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: Spacing.md,
@@ -224,94 +233,10 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginBottom: Spacing.sm,
   },
-  productWrapper: {
-    flex: 1,
-    maxWidth: "50%",
-  },
-  productCard: {
-    borderRadius: BorderRadius.md,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.04)",
-    ...Shadows.sm,
-  },
-  productImageContainer: {
-    position: "relative",
-    backgroundColor: "#F8F8F8",
-  },
-  productImage: {
-    width: "100%",
-    aspectRatio: 1,
-  },
-  productInfo: {
-    padding: Spacing.sm,
-    gap: 2,
-  },
-  productName: {
-    fontSize: 13,
-    fontWeight: "600",
-    lineHeight: 16,
-    color: Colors.light.text,
-  },
-  sellerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  sellerName: {
-    fontSize: 10,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingTop: 100,
-  },
-  lowStockBadge: {
-    position: "absolute",
-    top: 6,
-    left: 6,
-    backgroundColor: "#EF4444",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  lowStockText: {
-    fontSize: 9,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
-  productPrice: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: Colors.light.primary,
-    marginBottom: 4,
-  },
-  variantsIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 4,
-  },
-  miniColorSwatches: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-  },
-  miniColorSwatch: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.1)",
-  },
-  variantCount: {
-    fontSize: 10,
-    color: Colors.light.textSecondary,
-    marginLeft: 2,
-  },
-  sizeCount: {
-    fontSize: 10,
-    color: Colors.light.textSecondary,
-    fontWeight: "500",
   },
 });

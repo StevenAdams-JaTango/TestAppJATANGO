@@ -1,9 +1,10 @@
-import React, { useState } from "react";
-import { View, StyleSheet, Pressable, Switch, Platform } from "react-native";
+import React from "react";
+import { View, StyleSheet, Pressable } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 
@@ -11,23 +12,29 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { useTheme } from "@/hooks/useTheme";
-import { Colors, BorderRadius, Spacing } from "@/constants/theme";
+import { useThemeContext } from "@/contexts/ThemeContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { Spacing, BorderRadius, type ThemePreset } from "@/constants/theme";
+import { RootStackParamList } from "@/navigation/RootStackNavigator";
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
-  const { theme, isDark } = useTheme();
-  const navigation = useNavigation();
-  const [notifications, setNotifications] = useState(true);
-  const [liveAlerts, setLiveAlerts] = useState(true);
-  const [orderUpdates, setOrderUpdates] = useState(true);
+  const { theme } = useTheme();
+  const { mode, setMode, presetId, setPresetId, presets } = useThemeContext();
+  const navigation = useNavigation<NavigationProp>();
+  const { signOut } = useAuth();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    await signOut();
   };
 
-  const handleDeleteAccount = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+  const handlePresetSelect = (id: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setPresetId(id);
   };
 
   return (
@@ -43,129 +50,119 @@ export default function SettingsScreen() {
       scrollIndicatorInsets={{ bottom: insets.bottom }}
     >
       <Animated.View entering={FadeInDown.delay(100).springify()}>
-        <ThemedText style={[styles.sectionTitle, { color: theme.textSecondary }]}>
-          Account
+        <ThemedText
+          style={[styles.sectionTitle, { color: theme.textSecondary }]}
+        >
+          Payment & Shipping
         </ThemedText>
         <Card elevation={1} style={styles.menuCard}>
           <MenuItem
-            icon="user"
-            label="Edit Profile"
-            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+            icon="credit-card"
+            label="Payment Methods"
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("SavedPaymentMethods");
+            }}
             theme={theme}
           />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <MenuItem
-            icon="shopping-bag"
-            label="Seller Dashboard"
-            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+            icon="map-pin"
+            label="Shipping Addresses"
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("ShippingAddresses");
+            }}
             theme={theme}
           />
         </Card>
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(200).springify()}>
-        <ThemedText style={[styles.sectionTitle, { color: theme.textSecondary }]}>
-          Notifications
-        </ThemedText>
-        <Card elevation={1} style={styles.menuCard}>
-          <ToggleItem
-            icon="bell"
-            label="Push Notifications"
-            value={notifications}
-            onValueChange={(val) => {
-              setNotifications(val);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            theme={theme}
-          />
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <ToggleItem
-            icon="video"
-            label="Live Stream Alerts"
-            value={liveAlerts}
-            onValueChange={(val) => {
-              setLiveAlerts(val);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            theme={theme}
-          />
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <ToggleItem
-            icon="package"
-            label="Order Updates"
-            value={orderUpdates}
-            onValueChange={(val) => {
-              setOrderUpdates(val);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            theme={theme}
-          />
-        </Card>
-      </Animated.View>
-
-      <Animated.View entering={FadeInDown.delay(300).springify()}>
-        <ThemedText style={[styles.sectionTitle, { color: theme.textSecondary }]}>
+        <ThemedText
+          style={[styles.sectionTitle, { color: theme.textSecondary }]}
+        >
           Appearance
         </ThemedText>
         <Card elevation={1} style={styles.menuCard}>
           <View style={styles.themeItem}>
             <View style={styles.themeLeft}>
               <Feather name="moon" size={20} color={theme.text} />
-              <ThemedText style={styles.menuLabel}>Dark Mode</ThemedText>
+              <ThemedText style={styles.menuLabel}>Mode</ThemedText>
             </View>
-            <ThemedText style={[styles.themeValue, { color: theme.textSecondary }]}>
-              {isDark ? "On" : "Off"}
-            </ThemedText>
+          </View>
+          <View style={styles.themePicker}>
+            {(["system", "light", "dark"] as const).map((opt) => (
+              <Pressable
+                key={opt}
+                style={[
+                  styles.themeOption,
+                  {
+                    backgroundColor:
+                      mode === opt ? theme.primary : theme.backgroundSecondary,
+                  },
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setMode(opt);
+                }}
+              >
+                <Feather
+                  name={
+                    opt === "system"
+                      ? "smartphone"
+                      : opt === "light"
+                        ? "sun"
+                        : "moon"
+                  }
+                  size={16}
+                  color={mode === opt ? "#FFFFFF" : theme.text}
+                />
+                <ThemedText
+                  style={[
+                    styles.themeOptionText,
+                    {
+                      color: mode === opt ? "#FFFFFF" : theme.text,
+                    },
+                  ]}
+                >
+                  {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                </ThemedText>
+              </Pressable>
+            ))}
           </View>
         </Card>
-        <ThemedText style={[styles.themeHint, { color: theme.textSecondary }]}>
-          Theme follows your system settings
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.delay(300).springify()}>
+        <ThemedText
+          style={[styles.sectionTitle, { color: theme.textSecondary }]}
+        >
+          Color Theme
         </ThemedText>
+        <View style={styles.presetGrid}>
+          {presets.map((preset, index) => (
+            <PresetCard
+              key={preset.id}
+              preset={preset}
+              isSelected={presetId === preset.id}
+              onPress={() => handlePresetSelect(preset.id)}
+              theme={theme}
+              index={index}
+            />
+          ))}
+        </View>
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(400).springify()}>
-        <ThemedText style={[styles.sectionTitle, { color: theme.textSecondary }]}>
-          Support
-        </ThemedText>
-        <Card elevation={1} style={styles.menuCard}>
-          <MenuItem
-            icon="help-circle"
-            label="Help Center"
-            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-            theme={theme}
-          />
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <MenuItem
-            icon="file-text"
-            label="Terms of Service"
-            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-            theme={theme}
-          />
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <MenuItem
-            icon="shield"
-            label="Privacy Policy"
-            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-            theme={theme}
-          />
-        </Card>
-      </Animated.View>
-
-      <Animated.View entering={FadeInDown.delay(500).springify()}>
-        <ThemedText style={[styles.sectionTitle, { color: theme.textSecondary }]}>
-          Account Actions
-        </ThemedText>
-        <Card elevation={1} style={styles.menuCard}>
+        <Card elevation={1} style={styles.logoutCard}>
           <Pressable style={styles.menuItem} onPress={handleLogout}>
-            <Feather name="log-out" size={20} color={Colors.light.primary} />
-            <ThemedText style={[styles.menuLabel, { color: Colors.light.primary }]}>
+            <Feather name="log-out" size={20} color={theme.primary} />
+            <ThemedText style={[styles.menuLabel, { color: theme.primary }]}>
               Log Out
             </ThemedText>
           </Pressable>
         </Card>
-        <Pressable style={styles.deleteButton} onPress={handleDeleteAccount}>
-          <ThemedText style={styles.deleteText}>Delete Account</ThemedText>
-        </Pressable>
       </Animated.View>
 
       <View style={styles.footer}>
@@ -174,6 +171,128 @@ export default function SettingsScreen() {
         </ThemedText>
       </View>
     </KeyboardAwareScrollViewCompat>
+  );
+}
+
+function PresetCard({
+  preset,
+  isSelected,
+  onPress,
+  theme,
+  index,
+}: {
+  preset: ThemePreset;
+  isSelected: boolean;
+  onPress: () => void;
+  theme: any;
+  index: number;
+}) {
+  const previewColors = preset.light;
+
+  return (
+    <Animated.View
+      entering={FadeInDown.delay(300 + index * 60).springify()}
+      style={styles.presetWrapper}
+    >
+      <Pressable
+        onPress={onPress}
+        style={[
+          styles.presetCard,
+          {
+            backgroundColor: theme.backgroundDefault,
+            borderColor: isSelected ? theme.primary : theme.border,
+            borderWidth: isSelected ? 2 : 1,
+          },
+        ]}
+      >
+        {/* Color swatch preview */}
+        <View style={styles.swatchRow}>
+          <View
+            style={[
+              styles.swatchLarge,
+              { backgroundColor: previewColors.primary },
+            ]}
+          />
+          <View
+            style={[
+              styles.swatchMedium,
+              { backgroundColor: previewColors.secondary },
+            ]}
+          />
+          <View
+            style={[
+              styles.swatchSmall,
+              { backgroundColor: previewColors.backgroundSecondary },
+            ]}
+          />
+        </View>
+
+        {/* Mini UI preview */}
+        <View
+          style={[
+            styles.miniPreview,
+            { backgroundColor: previewColors.backgroundDefault },
+          ]}
+        >
+          <View
+            style={[styles.miniBar, { backgroundColor: previewColors.primary }]}
+          />
+          <View style={styles.miniContent}>
+            <View
+              style={[
+                styles.miniLine,
+                {
+                  backgroundColor: previewColors.text,
+                  width: "70%",
+                },
+              ]}
+            />
+            <View
+              style={[
+                styles.miniLine,
+                {
+                  backgroundColor: previewColors.textSecondary,
+                  width: "50%",
+                },
+              ]}
+            />
+          </View>
+          <View
+            style={[
+              styles.miniButton,
+              { backgroundColor: previewColors.primary },
+            ]}
+          />
+        </View>
+
+        {/* Label + icon */}
+        <View style={styles.presetFooter}>
+          <Feather
+            name={preset.icon as keyof typeof Feather.glyphMap}
+            size={14}
+            color={isSelected ? theme.primary : theme.textSecondary}
+          />
+          <ThemedText
+            style={[
+              styles.presetName,
+              {
+                color: isSelected ? theme.primary : theme.text,
+                fontWeight: isSelected ? "700" : "500",
+              },
+            ]}
+          >
+            {preset.name}
+          </ThemedText>
+        </View>
+
+        {/* Selected check */}
+        {isSelected && (
+          <View style={[styles.checkBadge, { backgroundColor: theme.primary }]}>
+            <Feather name="check" size={10} color="#FFFFFF" />
+          </View>
+        )}
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -194,36 +313,6 @@ function MenuItem({
       <ThemedText style={styles.menuLabel}>{label}</ThemedText>
       <Feather name="chevron-right" size={18} color={theme.textSecondary} />
     </Pressable>
-  );
-}
-
-function ToggleItem({
-  icon,
-  label,
-  value,
-  onValueChange,
-  theme,
-}: {
-  icon: keyof typeof Feather.glyphMap;
-  label: string;
-  value: boolean;
-  onValueChange: (val: boolean) => void;
-  theme: any;
-}) {
-  return (
-    <View style={styles.menuItem}>
-      <Feather name={icon} size={20} color={theme.text} />
-      <ThemedText style={styles.menuLabel}>{label}</ThemedText>
-      <Switch
-        value={value}
-        onValueChange={onValueChange}
-        trackColor={{
-          false: theme.border,
-          true: Colors.light.primary,
-        }}
-        thumbColor={Platform.OS === "android" ? Colors.light.buttonText : undefined}
-      />
-    </View>
   );
 }
 
@@ -272,23 +361,107 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  themeValue: {
-    fontSize: 14,
+  themePicker: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.md,
   },
-  themeHint: {
-    fontSize: 12,
-    marginTop: Spacing.sm,
-    marginLeft: Spacing.xs,
-  },
-  deleteButton: {
+  themeOption: {
+    flex: 1,
+    flexDirection: "row",
     alignItems: "center",
-    paddingVertical: Spacing.lg,
-    marginTop: Spacing.sm,
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    borderRadius: 8,
   },
-  deleteText: {
-    color: Colors.light.primary,
-    fontSize: 14,
-    fontWeight: "500",
+  themeOptionText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  presetGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  presetWrapper: {
+    width: "48%",
+    flexGrow: 1,
+  },
+  presetCard: {
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.sm,
+    position: "relative",
+    overflow: "hidden",
+  },
+  swatchRow: {
+    flexDirection: "row",
+    gap: 6,
+    marginBottom: Spacing.sm,
+  },
+  swatchLarge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
+  swatchMedium: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
+  swatchSmall: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
+  miniPreview: {
+    borderRadius: 6,
+    padding: 6,
+    marginBottom: Spacing.sm,
+  },
+  miniBar: {
+    height: 4,
+    borderRadius: 2,
+    width: "100%",
+    marginBottom: 6,
+  },
+  miniContent: {
+    gap: 3,
+    marginBottom: 6,
+  },
+  miniLine: {
+    height: 3,
+    borderRadius: 1.5,
+    opacity: 0.6,
+  },
+  miniButton: {
+    height: 10,
+    borderRadius: 5,
+    width: "40%",
+  },
+  presetFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  presetName: {
+    fontSize: 13,
+  },
+  checkBadge: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoutCard: {
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: 0,
+    marginTop: Spacing.xl,
   },
   footer: {
     alignItems: "center",

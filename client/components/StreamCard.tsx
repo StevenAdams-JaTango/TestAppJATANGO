@@ -10,7 +10,7 @@ import Animated, {
 import { ThemedText } from "@/components/ThemedText";
 import { LiveBadge } from "@/components/LiveBadge";
 import { useTheme } from "@/hooks/useTheme";
-import { Colors, BorderRadius, Spacing, Shadows } from "@/constants/theme";
+import { BorderRadius, Spacing, Shadows } from "@/constants/theme";
 import { LiveStream } from "@/types";
 
 interface StreamCardProps {
@@ -60,17 +60,13 @@ export function StreamCard({ stream, onPress }: StreamCardProps) {
           </View>
           <View style={styles.bottomRow}>
             <View style={styles.stat}>
-              <Feather name="eye" size={14} color={Colors.light.buttonText} />
+              <Feather name="eye" size={14} color={theme.buttonText} />
               <ThemedText style={styles.statText}>
                 {stream.viewerCount.toLocaleString()}
               </ThemedText>
             </View>
             <View style={styles.stat}>
-              <Feather
-                name="shopping-bag"
-                size={14}
-                color={Colors.light.buttonText}
-              />
+              <Feather name="shopping-bag" size={14} color={theme.buttonText} />
               <ThemedText style={styles.statText}>
                 {stream.productCount}
               </ThemedText>
@@ -81,7 +77,10 @@ export function StreamCard({ stream, onPress }: StreamCardProps) {
       <View style={styles.infoContainer}>
         <View style={styles.sellerRow}>
           <View
-            style={[styles.avatar, { backgroundColor: theme.backgroundTertiary }]}
+            style={[
+              styles.avatar,
+              { backgroundColor: theme.backgroundTertiary },
+            ]}
           >
             {stream.sellerAvatar ? (
               <Image
@@ -92,7 +91,9 @@ export function StreamCard({ stream, onPress }: StreamCardProps) {
               <Feather name="user" size={16} color={theme.textSecondary} />
             )}
           </View>
-          <ThemedText style={[styles.sellerName, { color: theme.textSecondary }]}>
+          <ThemedText
+            style={[styles.sellerName, { color: theme.textSecondary }]}
+          >
             {stream.sellerName}
           </ThemedText>
         </View>
@@ -143,7 +144,6 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.xs,
   },
   statText: {
-    color: Colors.light.buttonText,
     fontSize: 12,
     fontWeight: "600",
   },

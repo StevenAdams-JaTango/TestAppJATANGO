@@ -121,14 +121,68 @@ export interface LiveStream {
   scheduledAt?: string;
 }
 
+export interface OrderItem {
+  id: string;
+  orderId: string;
+  productId: string;
+  sellerId: string;
+  quantity: number;
+  unitPrice: number;
+  selectedColorId?: string;
+  selectedColorName?: string;
+  selectedSizeId?: string;
+  selectedSizeName?: string;
+  selectedVariantId?: string;
+  productName: string;
+  productImage?: string;
+  createdAt?: string;
+}
+
+export interface OrderPaymentCard {
+  brand: string;
+  last4: string;
+  expMonth: number;
+  expYear: number;
+}
+
 export interface Order {
   id: string;
-  productId: string;
-  productName: string;
-  productImage: string;
-  price: number;
-  status: "pending" | "shipped" | "delivered";
-  date: string;
+  userId: string;
+  stripePaymentIntentId?: string;
+  status: "pending" | "paid" | "shipped" | "delivered" | "cancelled";
+  totalAmount: number;
+  currency: string;
+  items: OrderItem[];
+  paymentCard?: OrderPaymentCard | null;
+  sellerNames?: Record<string, string>;
+  shippingAddress?: {
+    name: string;
+    addressLine1: string;
+    addressLine2?: string;
+    city: string;
+    state: string;
+    zip: string;
+    country: string;
+    phone?: string;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ShippingAddress {
+  id: string;
+  userId: string;
+  name: string;
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  phone?: string;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ChatMessage {

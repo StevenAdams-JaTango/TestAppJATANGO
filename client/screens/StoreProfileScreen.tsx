@@ -16,9 +16,11 @@ import Animated, { FadeIn } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
+import { CartIcon } from "@/components/CartIcon";
 import { ProductDetailSheet } from "@/components/ProductDetailSheet";
 import { ProductCard } from "@/components/ProductCard";
-import { Colors, BorderRadius, Spacing, Shadows } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { BorderRadius, Spacing, Shadows } from "@/constants/theme";
 import { HomeStackParamList } from "@/navigation/HomeStackNavigator";
 import { ExploreStackParamList } from "@/navigation/ExploreStackNavigator";
 import { Product } from "@/types";
@@ -40,6 +42,7 @@ interface StoreProfile {
 
 export default function StoreProfileScreen() {
   const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteType>();
   const { storeId } = route.params;
@@ -142,24 +145,37 @@ export default function StoreProfileScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color={Colors.light.primary} />
+      <View
+        style={[
+          styles.container,
+          styles.loadingContainer,
+          { backgroundColor: theme.backgroundRoot },
+        ]}
+      >
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: theme.backgroundRoot, paddingTop: insets.top },
+      ]}
+    >
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { borderBottomColor: theme.border }]}>
         <Pressable
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
-          <Feather name="arrow-left" size={24} color={Colors.light.text} />
+          <Feather name="arrow-left" size={24} color={theme.text} />
         </Pressable>
         <ThemedText style={styles.headerTitle}>Store</ThemedText>
-        <View style={styles.headerRight} />
+        <View style={styles.headerRight}>
+          <CartIcon />
+        </View>
       </View>
 
       <FlatList
@@ -168,13 +184,16 @@ export default function StoreProfileScreen() {
         numColumns={2}
         columnWrapperStyle={styles.row}
         renderItem={renderProduct}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingBottom: insets.bottom + 100 },
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={Colors.light.primary}
+            tintColor={theme.primary}
           />
         }
         ListHeaderComponent={
@@ -186,31 +205,34 @@ export default function StoreProfileScreen() {
                   style={styles.avatar}
                 />
               ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Feather
-                    name="user"
-                    size={40}
-                    color={Colors.light.textSecondary}
-                  />
+                <View
+                  style={[
+                    styles.avatarPlaceholder,
+                    { backgroundColor: theme.backgroundTertiary },
+                  ]}
+                >
+                  <Feather name="user" size={40} color={theme.textSecondary} />
                 </View>
               )}
             </View>
             <ThemedText style={styles.storeName}>
               {store?.store_name || store?.name || "Store"}
             </ThemedText>
-            <ThemedText style={styles.productCount}>
+            <ThemedText
+              style={[styles.productCount, { color: theme.textSecondary }]}
+            >
               {products.length} {products.length === 1 ? "product" : "products"}
             </ThemedText>
           </Animated.View>
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Feather
-              name="package"
-              size={48}
-              color={Colors.light.textSecondary}
-            />
-            <ThemedText style={styles.emptyText}>No products yet</ThemedText>
+            <Feather name="package" size={48} color={theme.textSecondary} />
+            <ThemedText
+              style={[styles.emptyText, { color: theme.textSecondary }]}
+            >
+              No products yet
+            </ThemedText>
           </View>
         }
       />
@@ -229,7 +251,6 @@ export default function StoreProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.backgroundRoot,
   },
   loadingContainer: {
     justifyContent: "center",
@@ -242,7 +263,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
   },
   backButton: {
     width: 40,
@@ -253,7 +273,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: Colors.light.text,
   },
   headerRight: {
     width: 40,
@@ -275,23 +294,19 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: Colors.light.backgroundTertiary,
     alignItems: "center",
     justifyContent: "center",
   },
   storeName: {
     fontSize: 24,
     fontWeight: "700",
-    color: Colors.light.text,
     marginBottom: Spacing.xs,
   },
   productCount: {
     fontSize: 14,
-    color: Colors.light.textSecondary,
   },
   listContent: {
     paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.xl,
   },
   row: {
     gap: Spacing.sm,
@@ -302,16 +317,13 @@ const styles = StyleSheet.create({
     maxWidth: "50%",
   },
   productCard: {
-    backgroundColor: "#FFFFFF",
     borderRadius: BorderRadius.md,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.04)",
     ...Shadows.sm,
   },
-  productImageContainer: {
-    backgroundColor: "#F8F8F8",
-  },
+  productImageContainer: {},
+
   productImage: {
     width: "100%",
     aspectRatio: 1,
@@ -323,12 +335,10 @@ const styles = StyleSheet.create({
   productName: {
     fontSize: 13,
     fontWeight: "600",
-    color: Colors.light.text,
   },
   productPrice: {
     fontSize: 15,
     fontWeight: "700",
-    color: Colors.light.primary,
   },
   variantsRow: {
     flexDirection: "row",
@@ -349,7 +359,6 @@ const styles = StyleSheet.create({
   },
   sizeText: {
     fontSize: 10,
-    color: Colors.light.textSecondary,
   },
   emptyContainer: {
     alignItems: "center",
@@ -358,7 +367,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: Colors.light.textSecondary,
     marginTop: Spacing.md,
   },
 });

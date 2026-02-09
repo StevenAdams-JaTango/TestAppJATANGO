@@ -9,13 +9,15 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, BorderRadius, Spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { BorderRadius, Spacing } from "@/constants/theme";
 
 interface LiveBadgeProps {
   size?: "small" | "medium";
 }
 
 export function LiveBadge({ size = "medium" }: LiveBadgeProps) {
+  const { theme } = useTheme();
   const opacity = useSharedValue(1);
 
   useEffect(() => {
@@ -41,7 +43,7 @@ export function LiveBadge({ size = "medium" }: LiveBadgeProps) {
         style={[
           styles.text,
           isSmall && styles.textSmall,
-          { color: Colors.light.buttonText },
+          { color: theme.buttonText },
         ]}
       >
         Live

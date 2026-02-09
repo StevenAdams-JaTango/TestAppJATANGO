@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import { Room, RoomEvent, ConnectionState, Track } from "livekit-client";
 import { getApiUrl } from "@/lib/query-client";
 
@@ -106,8 +107,15 @@ class StreamingService {
 
   async connect(token: string, wsUrl: string): Promise<Room> {
     this.room = new Room({
-      adaptiveStream: true,
+      adaptiveStream: Platform.OS !== "web",
       dynacast: true,
+      audioCaptureDefaults: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        sampleRate: 48000,
+        channelCount: 1,
+      },
       videoCaptureDefaults: {
         resolution: {
           width: 1920,
@@ -121,6 +129,9 @@ class StreamingService {
         videoCodec: "h264",
         dtx: true,
         red: true,
+        audioPreset: {
+          maxBitrate: 64_000,
+        },
         simulcast: true,
         videoSimulcastLayers: [
           {
@@ -185,39 +196,74 @@ class StreamingService {
   async publishTracks(video: boolean = true, audio: boolean = true) {
     if (!this.room) throw new Error("Not connected to room");
 
-    // Force high quality video constraints
-    const videoConstraints = {
-      width: { ideal: 1920, min: 1280 },
-      height: { ideal: 1080, min: 720 },
-      frameRate: { ideal: 30, min: 24 },
-      aspectRatio: { ideal: 16 / 9 },
-    };
+    console.log(
+      "[Streaming] Publishing tracks - video:",
+      video,
+      "audio:",
+      audio,
+    );
 
-    await this.room.localParticipant.enableCameraAndMicrophone();
+    try {
+      // Enable camera and microphone - LiveKit will handle device capture
+      await this.room.localParticipant.enableCameraAndMicrophone();
+      console.log("[Streaming] Camera and microphone enabled");
+      console.log(
+        "[Streaming] Published video tracks:",
+        this.room.localParticipant.videoTrackPublications.size,
+      );
+      console.log(
+        "[Streaming] Published audio tracks:",
+        this.room.localParticipant.audioTrackPublications.size,
+      );
 
-    // Apply quality constraints to video track
-    if (video) {
-      const videoTrack = this.room.localParticipant.videoTrackPublications
-        .values()
-        .next().value?.track;
-      if (videoTrack) {
-        try {
-          // @ts-ignore - accessing underlying MediaStreamTrack
-          const mediaStreamTrack = videoTrack.mediaStreamTrack;
-          if (mediaStreamTrack && "applyConstraints" in mediaStreamTrack) {
-            await mediaStreamTrack.applyConstraints(videoConstraints);
+      // Apply mobile-friendly video constraints after tracks are published
+      if (video) {
+        // Wait a moment for tracks to be fully published
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        const videoTrack = this.room.localParticipant.videoTrackPublications
+          .values()
+          .next().value?.track;
+
+        if (videoTrack) {
+          try {
+            // @ts-ignore - accessing underlying MediaStreamTrack
+            const mediaStreamTrack = videoTrack.mediaStreamTrack;
+            if (mediaStreamTrack && "applyConstraints" in mediaStreamTrack) {
+              // More lenient constraints that work on mobile
+              const videoConstraints = {
+                width: { ideal: 1280, max: 1920 },
+                height: { ideal: 720, max: 1080 },
+                frameRate: { ideal: 30 },
+              };
+              await mediaStreamTrack.applyConstraints(videoConstraints);
+              console.log("[Streaming] Video constraints applied");
+            }
+          } catch (error) {
+            console.warn(
+              "[Streaming] Failed to apply video constraints:",
+              error,
+            );
+            // Continue anyway - constraints are optional
           }
-        } catch (error) {
-          console.warn("Failed to apply video constraints:", error);
+        } else {
+          console.warn(
+            "[Streaming] No video track found after enabling camera",
+          );
         }
       }
-    }
 
-    if (!video) {
-      await this.room.localParticipant.setCameraEnabled(false);
-    }
-    if (!audio) {
-      await this.room.localParticipant.setMicrophoneEnabled(false);
+      if (!video) {
+        await this.room.localParticipant.setCameraEnabled(false);
+      }
+      if (!audio) {
+        await this.room.localParticipant.setMicrophoneEnabled(false);
+      }
+
+      console.log("[Streaming] Track publishing complete");
+    } catch (error) {
+      console.error("[Streaming] Error publishing tracks:", error);
+      throw error;
     }
   }
 

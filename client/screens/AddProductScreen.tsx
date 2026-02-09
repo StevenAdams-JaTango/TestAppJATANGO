@@ -17,10 +17,12 @@ import * as ImagePicker from "expo-image-picker";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
+import { CartIcon } from "@/components/CartIcon";
 import { ColorPicker } from "@/components/ColorPicker";
 import { ImageCropperModal } from "@/components/ImageCropperModal";
+import { useTheme } from "@/hooks/useTheme";
 import { useTaxCategories, TaxCategory } from "@/hooks/useTaxCategories";
-import { Colors, BorderRadius, Spacing, Shadows } from "@/constants/theme";
+import { BorderRadius, Spacing, Shadows } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { productsService, ProductInput } from "@/services/products";
 import { uploadImages, uploadImage } from "@/services/storage";
@@ -143,6 +145,7 @@ const WEIGHT_UNITS = ["oz", "lb", "g", "kg"] as const;
 const DIMENSION_UNITS = ["in", "cm"] as const;
 
 export default function AddProductScreen() {
+  const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteType>();
@@ -826,7 +829,7 @@ export default function AddProductScreen() {
   if (loadingProduct) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color={Colors.light.primary} />
+        <ActivityIndicator size="large" color={theme.primary} />
         <ThemedText style={styles.loadingText}>Loading product...</ThemedText>
       </View>
     );
@@ -837,12 +840,14 @@ export default function AddProductScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.closeBtn}>
-          <Feather name="x" size={24} color={Colors.light.text} />
+          <Feather name="x" size={24} color={theme.text} />
         </Pressable>
         <ThemedText style={styles.headerTitle}>
           {isEditMode ? "Edit Product" : "Create Product"}
         </ThemedText>
-        <View style={styles.headerRight} />
+        <View style={styles.headerRight}>
+          <CartIcon />
+        </View>
       </View>
 
       <ScrollView
@@ -866,7 +871,7 @@ export default function AddProductScreen() {
               </View>
             ))}
             <Pressable style={styles.addPhotoBtn} onPress={handleAddPhoto}>
-              <Feather name="image" size={24} color={Colors.light.secondary} />
+              <Feather name="image" size={24} color={theme.secondary} />
               <ThemedText style={styles.addPhotoText}>Add Photos</ThemedText>
             </Pressable>
           </View>
@@ -883,7 +888,7 @@ export default function AddProductScreen() {
                 value={name}
                 onChangeText={setName}
                 placeholder="Product Name"
-                placeholderTextColor={Colors.light.textSecondary}
+                placeholderTextColor={theme.textSecondary}
               />
               {!name.trim() && (
                 <ThemedText style={styles.requiredBadge}>Required</ThemedText>
@@ -908,7 +913,7 @@ export default function AddProductScreen() {
                 <Feather
                   name={showCategoryPicker ? "chevron-up" : "chevron-down"}
                   size={18}
-                  color={Colors.light.textSecondary}
+                  color={theme.textSecondary}
                 />
               </Pressable>
               {!category && (
@@ -947,11 +952,7 @@ export default function AddProductScreen() {
                     {cat}
                   </ThemedText>
                   {category === cat && (
-                    <Feather
-                      name="check"
-                      size={18}
-                      color={Colors.light.primary}
-                    />
+                    <Feather name="check" size={18} color={theme.primary} />
                   )}
                 </Pressable>
               ))}
@@ -970,7 +971,7 @@ export default function AddProductScreen() {
                   value={price}
                   onChangeText={setPrice}
                   placeholder="$0.00"
-                  placeholderTextColor={Colors.light.textSecondary}
+                  placeholderTextColor={theme.textSecondary}
                   keyboardType="decimal-pad"
                 />
                 {!price && (
@@ -988,7 +989,7 @@ export default function AddProductScreen() {
                   value={msrp}
                   onChangeText={setMsrp}
                   placeholder="$0.00"
-                  placeholderTextColor={Colors.light.textSecondary}
+                  placeholderTextColor={theme.textSecondary}
                   keyboardType="decimal-pad"
                 />
               </View>
@@ -999,7 +1000,7 @@ export default function AddProductScreen() {
                   value={cost}
                   onChangeText={setCost}
                   placeholder="$0.00"
-                  placeholderTextColor={Colors.light.textSecondary}
+                  placeholderTextColor={theme.textSecondary}
                   keyboardType="decimal-pad"
                 />
               </View>
@@ -1019,7 +1020,7 @@ export default function AddProductScreen() {
                     value={weight}
                     onChangeText={setWeight}
                     placeholder="0"
-                    placeholderTextColor={Colors.light.textSecondary}
+                    placeholderTextColor={theme.textSecondary}
                     keyboardType="decimal-pad"
                   />
                   {!weight && (
@@ -1069,14 +1070,14 @@ export default function AddProductScreen() {
                     )
                   }
                 >
-                  <Feather name="minus" size={18} color={Colors.light.text} />
+                  <Feather name="minus" size={18} color={theme.text} />
                 </Pressable>
                 <TextInput
                   style={[styles.input, styles.quantityField]}
                   value={quantityInStock}
                   onChangeText={setQuantityInStock}
                   placeholder="0"
-                  placeholderTextColor={Colors.light.textSecondary}
+                  placeholderTextColor={theme.textSecondary}
                   keyboardType="number-pad"
                 />
                 <Pressable
@@ -1087,7 +1088,7 @@ export default function AddProductScreen() {
                     )
                   }
                 >
-                  <Feather name="plus" size={18} color={Colors.light.text} />
+                  <Feather name="plus" size={18} color={theme.text} />
                 </Pressable>
               </View>
             </View>
@@ -1104,7 +1105,7 @@ export default function AddProductScreen() {
                 value={aisle}
                 onChangeText={setAisle}
                 placeholder="Aisle"
-                placeholderTextColor={Colors.light.textSecondary}
+                placeholderTextColor={theme.textSecondary}
               />
             </View>
             <View style={[styles.inputGroup, { flex: 1 }]}>
@@ -1114,7 +1115,7 @@ export default function AddProductScreen() {
                 value={bin}
                 onChangeText={setBin}
                 placeholder="Bin"
-                placeholderTextColor={Colors.light.textSecondary}
+                placeholderTextColor={theme.textSecondary}
               />
             </View>
           </View>
@@ -1131,7 +1132,7 @@ export default function AddProductScreen() {
                   value={length}
                   onChangeText={setLength}
                   placeholder="Length"
-                  placeholderTextColor={Colors.light.textSecondary}
+                  placeholderTextColor={theme.textSecondary}
                   keyboardType="decimal-pad"
                 />
               </View>
@@ -1142,7 +1143,7 @@ export default function AddProductScreen() {
                   value={width}
                   onChangeText={setWidth}
                   placeholder="Width"
-                  placeholderTextColor={Colors.light.textSecondary}
+                  placeholderTextColor={theme.textSecondary}
                   keyboardType="decimal-pad"
                 />
               </View>
@@ -1153,7 +1154,7 @@ export default function AddProductScreen() {
                   value={height}
                   onChangeText={setHeight}
                   placeholder="Height"
-                  placeholderTextColor={Colors.light.textSecondary}
+                  placeholderTextColor={theme.textSecondary}
                   keyboardType="decimal-pad"
                 />
               </View>
@@ -1198,7 +1199,7 @@ export default function AddProductScreen() {
                 value={barcode}
                 onChangeText={setBarcode}
                 placeholder="Barcode"
-                placeholderTextColor={Colors.light.textSecondary}
+                placeholderTextColor={theme.textSecondary}
               />
               <ThemedText style={styles.hint}>
                 A barcode will automatically be generated if this field is left
@@ -1214,7 +1215,7 @@ export default function AddProductScreen() {
                 value={sku}
                 onChangeText={setSku}
                 placeholder="SKU"
-                placeholderTextColor={Colors.light.textSecondary}
+                placeholderTextColor={theme.textSecondary}
               />
             </View>
           </View>
@@ -1228,7 +1229,7 @@ export default function AddProductScreen() {
             value={description}
             onChangeText={setDescription}
             placeholder="Product description..."
-            placeholderTextColor={Colors.light.textSecondary}
+            placeholderTextColor={theme.textSecondary}
             multiline
             numberOfLines={4}
             textAlignVertical="top"
@@ -1267,7 +1268,7 @@ export default function AddProductScreen() {
                           editingColorId === color.id ? "chevron-up" : "edit-2"
                         }
                         size={16}
-                        color={Colors.light.secondary}
+                        color={theme.secondary}
                       />
                     </Pressable>
                   )}
@@ -1295,7 +1296,7 @@ export default function AddProductScreen() {
                         <Feather
                           name="image"
                           size={32}
-                          color={Colors.light.secondary}
+                          color={theme.secondary}
                         />
                         <ThemedText style={styles.variantImageText}>
                           Add Image
@@ -1315,7 +1316,7 @@ export default function AddProductScreen() {
                             handleUpdateColorField(color.id, "msrp", v)
                           }
                           placeholder="MSRP"
-                          placeholderTextColor={Colors.light.textSecondary}
+                          placeholderTextColor={theme.textSecondary}
                           keyboardType="decimal-pad"
                         />
                       </View>
@@ -1327,7 +1328,7 @@ export default function AddProductScreen() {
                             handleUpdateColorField(color.id, "cost", v)
                           }
                           placeholder="Cost"
-                          placeholderTextColor={Colors.light.textSecondary}
+                          placeholderTextColor={theme.textSecondary}
                           keyboardType="decimal-pad"
                         />
                       </View>
@@ -1344,7 +1345,7 @@ export default function AddProductScreen() {
                           handleUpdateColorField(color.id, "weight", v)
                         }
                         placeholder="0"
-                        placeholderTextColor={Colors.light.textSecondary}
+                        placeholderTextColor={theme.textSecondary}
                         keyboardType="decimal-pad"
                       />
                       <TextInput
@@ -1354,7 +1355,7 @@ export default function AddProductScreen() {
                           handleUpdateColorField(color.id, "weightUnit", v)
                         }
                         placeholder="oz"
-                        placeholderTextColor={Colors.light.textSecondary}
+                        placeholderTextColor={theme.textSecondary}
                       />
                     </View>
                   </View>
@@ -1369,7 +1370,7 @@ export default function AddProductScreen() {
                           handleUpdateColorField(color.id, "length", v)
                         }
                         placeholder="Length"
-                        placeholderTextColor={Colors.light.textSecondary}
+                        placeholderTextColor={theme.textSecondary}
                         keyboardType="decimal-pad"
                       />
                       <TextInput
@@ -1379,7 +1380,7 @@ export default function AddProductScreen() {
                           handleUpdateColorField(color.id, "width", v)
                         }
                         placeholder="Width"
-                        placeholderTextColor={Colors.light.textSecondary}
+                        placeholderTextColor={theme.textSecondary}
                         keyboardType="decimal-pad"
                       />
                       <TextInput
@@ -1389,7 +1390,7 @@ export default function AddProductScreen() {
                           handleUpdateColorField(color.id, "height", v)
                         }
                         placeholder="Height"
-                        placeholderTextColor={Colors.light.textSecondary}
+                        placeholderTextColor={theme.textSecondary}
                         keyboardType="decimal-pad"
                       />
                     </View>
@@ -1404,7 +1405,7 @@ export default function AddProductScreen() {
                         handleUpdateColorField(color.id, "sku", v)
                       }
                       placeholder="SKU (Stock Keeping Unit)"
-                      placeholderTextColor={Colors.light.textSecondary}
+                      placeholderTextColor={theme.textSecondary}
                     />
                   </View>
 
@@ -1417,7 +1418,7 @@ export default function AddProductScreen() {
                         handleUpdateColorField(color.id, "barcode", v)
                       }
                       placeholder="Barcode"
-                      placeholderTextColor={Colors.light.textSecondary}
+                      placeholderTextColor={theme.textSecondary}
                     />
                     <ThemedText style={styles.hint}>
                       A barcode will automatically be generated if this field is
@@ -1443,11 +1444,7 @@ export default function AddProductScreen() {
                           }
                         }}
                       >
-                        <Feather
-                          name="minus"
-                          size={16}
-                          color={Colors.light.text}
-                        />
+                        <Feather name="minus" size={16} color={theme.text} />
                       </Pressable>
                       <TextInput
                         style={styles.stockInput}
@@ -1468,11 +1465,7 @@ export default function AddProductScreen() {
                           );
                         }}
                       >
-                        <Feather
-                          name="plus"
-                          size={16}
-                          color={Colors.light.text}
-                        />
+                        <Feather name="plus" size={16} color={theme.text} />
                       </Pressable>
                     </View>
                   </View>
@@ -1505,7 +1498,7 @@ export default function AddProductScreen() {
               onFocus={() => setShowColorDropdown(true)}
               onBlur={() => setTimeout(() => setShowColorDropdown(false), 200)}
               placeholder="Type or select a color..."
-              placeholderTextColor={Colors.light.textSecondary}
+              placeholderTextColor={theme.textSecondary}
             />
             <Pressable
               style={[styles.input, styles.colorHexButton]}
@@ -1514,7 +1507,7 @@ export default function AddProductScreen() {
               <ThemedText style={styles.colorHexText}>{newColorHex}</ThemedText>
             </Pressable>
             <Pressable style={styles.addVariantBtn} onPress={handleAddColor}>
-              <Feather name="plus" size={20} color={Colors.light.buttonText} />
+              <Feather name="plus" size={20} color={theme.buttonText} />
             </Pressable>
           </View>
           {showColorDropdown && (
@@ -1555,7 +1548,7 @@ export default function AddProductScreen() {
                       </ThemedText>
                     </Pressable>
                   ))}
-                {newColorName.trim() &&
+                {newColorName.trim() !== "" &&
                   !COMMON_COLORS.some(
                     (c) => c.name.toLowerCase() === newColorName.toLowerCase(),
                   ) && (
@@ -1612,7 +1605,7 @@ export default function AddProductScreen() {
                           editingSizeId === size.id ? "chevron-up" : "edit-2"
                         }
                         size={16}
-                        color={Colors.light.secondary}
+                        color={theme.secondary}
                       />
                     </Pressable>
                   )}
@@ -1640,7 +1633,7 @@ export default function AddProductScreen() {
                         <Feather
                           name="image"
                           size={32}
-                          color={Colors.light.secondary}
+                          color={theme.secondary}
                         />
                         <ThemedText style={styles.variantImageText}>
                           Add Image
@@ -1660,7 +1653,7 @@ export default function AddProductScreen() {
                             handleUpdateSizeField(size.id, "msrp", v)
                           }
                           placeholder="MSRP"
-                          placeholderTextColor={Colors.light.textSecondary}
+                          placeholderTextColor={theme.textSecondary}
                           keyboardType="decimal-pad"
                         />
                       </View>
@@ -1672,7 +1665,7 @@ export default function AddProductScreen() {
                             handleUpdateSizeField(size.id, "cost", v)
                           }
                           placeholder="Cost"
-                          placeholderTextColor={Colors.light.textSecondary}
+                          placeholderTextColor={theme.textSecondary}
                           keyboardType="decimal-pad"
                         />
                       </View>
@@ -1689,7 +1682,7 @@ export default function AddProductScreen() {
                           handleUpdateSizeField(size.id, "weight", v)
                         }
                         placeholder="0"
-                        placeholderTextColor={Colors.light.textSecondary}
+                        placeholderTextColor={theme.textSecondary}
                         keyboardType="decimal-pad"
                       />
                       <TextInput
@@ -1699,7 +1692,7 @@ export default function AddProductScreen() {
                           handleUpdateSizeField(size.id, "weightUnit", v)
                         }
                         placeholder="oz"
-                        placeholderTextColor={Colors.light.textSecondary}
+                        placeholderTextColor={theme.textSecondary}
                       />
                     </View>
                   </View>
@@ -1714,7 +1707,7 @@ export default function AddProductScreen() {
                           handleUpdateSizeField(size.id, "length", v)
                         }
                         placeholder="Length"
-                        placeholderTextColor={Colors.light.textSecondary}
+                        placeholderTextColor={theme.textSecondary}
                         keyboardType="decimal-pad"
                       />
                       <TextInput
@@ -1724,7 +1717,7 @@ export default function AddProductScreen() {
                           handleUpdateSizeField(size.id, "width", v)
                         }
                         placeholder="Width"
-                        placeholderTextColor={Colors.light.textSecondary}
+                        placeholderTextColor={theme.textSecondary}
                         keyboardType="decimal-pad"
                       />
                       <TextInput
@@ -1734,7 +1727,7 @@ export default function AddProductScreen() {
                           handleUpdateSizeField(size.id, "height", v)
                         }
                         placeholder="Height"
-                        placeholderTextColor={Colors.light.textSecondary}
+                        placeholderTextColor={theme.textSecondary}
                         keyboardType="decimal-pad"
                       />
                     </View>
@@ -1749,7 +1742,7 @@ export default function AddProductScreen() {
                         handleUpdateSizeField(size.id, "sku", v)
                       }
                       placeholder="SKU (Stock Keeping Unit)"
-                      placeholderTextColor={Colors.light.textSecondary}
+                      placeholderTextColor={theme.textSecondary}
                     />
                   </View>
 
@@ -1762,7 +1755,7 @@ export default function AddProductScreen() {
                         handleUpdateSizeField(size.id, "barcode", v)
                       }
                       placeholder="Barcode"
-                      placeholderTextColor={Colors.light.textSecondary}
+                      placeholderTextColor={theme.textSecondary}
                     />
                     <ThemedText style={styles.hint}>
                       A barcode will automatically be generated if this field is
@@ -1788,11 +1781,7 @@ export default function AddProductScreen() {
                           }
                         }}
                       >
-                        <Feather
-                          name="minus"
-                          size={16}
-                          color={Colors.light.text}
-                        />
+                        <Feather name="minus" size={16} color={theme.text} />
                       </Pressable>
                       <TextInput
                         style={styles.stockInput}
@@ -1813,11 +1802,7 @@ export default function AddProductScreen() {
                           );
                         }}
                       >
-                        <Feather
-                          name="plus"
-                          size={16}
-                          color={Colors.light.text}
-                        />
+                        <Feather name="plus" size={16} color={theme.text} />
                       </Pressable>
                     </View>
                   </View>
@@ -1837,10 +1822,10 @@ export default function AddProductScreen() {
               onFocus={() => setShowSizeDropdown(true)}
               onBlur={() => setTimeout(() => setShowSizeDropdown(false), 200)}
               placeholder="Type or select a size..."
-              placeholderTextColor={Colors.light.textSecondary}
+              placeholderTextColor={theme.textSecondary}
             />
             <Pressable style={styles.addVariantBtn} onPress={handleAddSize}>
-              <Feather name="plus" size={20} color={Colors.light.buttonText} />
+              <Feather name="plus" size={20} color={theme.buttonText} />
             </Pressable>
           </View>
           {showSizeDropdown && (
@@ -1879,7 +1864,7 @@ export default function AddProductScreen() {
                       </ThemedText>
                     </Pressable>
                   ))}
-                {newSizeName.trim() &&
+                {newSizeName.trim() !== "" &&
                   !ALL_COMMON_SIZES.some(
                     (item) =>
                       item.size.toLowerCase() === newSizeName.toLowerCase(),
@@ -2025,7 +2010,7 @@ export default function AddProductScreen() {
                             : "edit-2"
                         }
                         size={16}
-                        color={Colors.light.secondary}
+                        color={theme.secondary}
                       />
                     </Pressable>
                     <Pressable
@@ -2052,7 +2037,7 @@ export default function AddProductScreen() {
                           <Feather
                             name="image"
                             size={32}
-                            color={Colors.light.secondary}
+                            color={theme.secondary}
                           />
                           <ThemedText style={styles.variantImageText}>
                             Add Variant Image
@@ -2072,7 +2057,7 @@ export default function AddProductScreen() {
                               handleUpdateVariantField(variant.id, "price", v)
                             }
                             placeholder="Price"
-                            placeholderTextColor={Colors.light.textSecondary}
+                            placeholderTextColor={theme.textSecondary}
                             keyboardType="decimal-pad"
                           />
                           {!variant.price && (
@@ -2089,7 +2074,7 @@ export default function AddProductScreen() {
                               handleUpdateVariantField(variant.id, "msrp", v)
                             }
                             placeholder="MSRP"
-                            placeholderTextColor={Colors.light.textSecondary}
+                            placeholderTextColor={theme.textSecondary}
                             keyboardType="decimal-pad"
                           />
                         </View>
@@ -2101,7 +2086,7 @@ export default function AddProductScreen() {
                               handleUpdateVariantField(variant.id, "cost", v)
                             }
                             placeholder="Cost"
-                            placeholderTextColor={Colors.light.textSecondary}
+                            placeholderTextColor={theme.textSecondary}
                             keyboardType="decimal-pad"
                           />
                         </View>
@@ -2120,7 +2105,7 @@ export default function AddProductScreen() {
                             handleUpdateVariantField(variant.id, "sku", v)
                           }
                           placeholder="SKU"
-                          placeholderTextColor={Colors.light.textSecondary}
+                          placeholderTextColor={theme.textSecondary}
                         />
                         <TextInput
                           style={[styles.input, { flex: 1 }]}
@@ -2129,7 +2114,7 @@ export default function AddProductScreen() {
                             handleUpdateVariantField(variant.id, "barcode", v)
                           }
                           placeholder="Barcode"
-                          placeholderTextColor={Colors.light.textSecondary}
+                          placeholderTextColor={theme.textSecondary}
                         />
                       </View>
                     </View>
@@ -2151,7 +2136,7 @@ export default function AddProductScreen() {
                             handleUpdateVariantField(variant.id, "weight", v)
                           }
                           placeholder="Weight"
-                          placeholderTextColor={Colors.light.textSecondary}
+                          placeholderTextColor={theme.textSecondary}
                           keyboardType="decimal-pad"
                         />
                         <View style={styles.unitPicker}>
@@ -2196,7 +2181,7 @@ export default function AddProductScreen() {
                             handleUpdateVariantField(variant.id, "length", v)
                           }
                           placeholder="Length"
-                          placeholderTextColor={Colors.light.textSecondary}
+                          placeholderTextColor={theme.textSecondary}
                           keyboardType="decimal-pad"
                         />
                         <TextInput
@@ -2206,7 +2191,7 @@ export default function AddProductScreen() {
                             handleUpdateVariantField(variant.id, "width", v)
                           }
                           placeholder="Width"
-                          placeholderTextColor={Colors.light.textSecondary}
+                          placeholderTextColor={theme.textSecondary}
                           keyboardType="decimal-pad"
                         />
                         <TextInput
@@ -2216,7 +2201,7 @@ export default function AddProductScreen() {
                             handleUpdateVariantField(variant.id, "height", v)
                           }
                           placeholder="Height"
-                          placeholderTextColor={Colors.light.textSecondary}
+                          placeholderTextColor={theme.textSecondary}
                           keyboardType="decimal-pad"
                         />
                         <View style={styles.unitPicker}>
@@ -2277,11 +2262,7 @@ export default function AddProductScreen() {
                             }
                           }}
                         >
-                          <Feather
-                            name="minus"
-                            size={16}
-                            color={Colors.light.text}
-                          />
+                          <Feather name="minus" size={16} color={theme.text} />
                         </Pressable>
                         <TextInput
                           style={styles.stockInput}
@@ -2306,11 +2287,7 @@ export default function AddProductScreen() {
                             );
                           }}
                         >
-                          <Feather
-                            name="plus"
-                            size={16}
-                            color={Colors.light.text}
-                          />
+                          <Feather name="plus" size={16} color={theme.text} />
                         </Pressable>
                       </View>
                     </View>
@@ -2383,7 +2360,7 @@ export default function AddProductScreen() {
             <Feather
               name="chevron-down"
               size={18}
-              color={Colors.light.textSecondary}
+              color={theme.textSecondary}
             />
           </Pressable>
           <ThemedText style={styles.hint}>
@@ -2414,7 +2391,7 @@ export default function AddProductScreen() {
               <Feather
                 name={showTaxCategoryPicker ? "chevron-up" : "chevron-down"}
                 size={18}
-                color={Colors.light.textSecondary}
+                color={theme.textSecondary}
               />
             </Pressable>
             {!taxCategory && (
@@ -2428,7 +2405,7 @@ export default function AddProductScreen() {
           <View style={styles.categoryDropdown}>
             {loadingTaxCategories ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={Colors.light.primary} />
+                <ActivityIndicator size="small" color={theme.primary} />
                 <ThemedText style={styles.loadingText}>
                   Loading tax categories...
                 </ThemedText>
@@ -2465,11 +2442,7 @@ export default function AddProductScreen() {
                       </ThemedText>
                     </View>
                     {taxCategory === cat.name && (
-                      <Feather
-                        name="check"
-                        size={18}
-                        color={Colors.light.primary}
-                      />
+                      <Feather name="check" size={18} color={theme.primary} />
                     )}
                   </Pressable>
                 ))}
@@ -2532,7 +2505,6 @@ export default function AddProductScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.backgroundRoot,
   },
   header: {
     flexDirection: "row",
@@ -2541,7 +2513,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
   },
   closeBtn: {
     width: 40,
@@ -2552,7 +2523,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: Colors.light.text,
   },
   headerRight: {
     width: 40,
@@ -2598,7 +2568,6 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: BorderRadius.sm,
     borderWidth: 2,
-    borderColor: Colors.light.secondary,
     borderStyle: "dashed",
     alignItems: "center",
     justifyContent: "center",
@@ -2607,11 +2576,9 @@ const styles = StyleSheet.create({
   addPhotoText: {
     fontSize: 12,
     fontWeight: "600",
-    color: Colors.light.secondary,
   },
   photoHint: {
     fontSize: 12,
-    color: Colors.light.textSecondary,
     marginTop: Spacing.xs,
   },
   row: {
@@ -2625,18 +2592,14 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: "600",
-    color: Colors.light.textSecondary,
     marginBottom: Spacing.xs,
   },
   input: {
-    backgroundColor: Colors.light.backgroundSecondary,
     borderRadius: BorderRadius.sm,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     fontSize: 15,
-    color: Colors.light.text,
     borderWidth: 1,
-    borderColor: Colors.light.border,
   },
   textArea: {
     minHeight: 100,
@@ -2646,29 +2609,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: Colors.light.backgroundSecondary,
     borderRadius: BorderRadius.sm,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.light.border,
   },
   selectText: {
     fontSize: 15,
-    color: Colors.light.text,
   },
-  placeholderText: {
-    color: Colors.light.textSecondary,
-  },
+  placeholderText: {},
   dropdown: {
     position: "absolute",
     top: "100%",
     left: 0,
     right: 0,
-    backgroundColor: Colors.light.backgroundRoot,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
-    borderColor: Colors.light.border,
     zIndex: 100,
     ...Shadows.lg,
   },
@@ -2676,17 +2632,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
   },
   dropdownText: {
     fontSize: 14,
-    color: Colors.light.text,
   },
   categoryDropdown: {
-    backgroundColor: Colors.light.backgroundRoot,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: Colors.light.border,
     marginBottom: Spacing.md,
     ...Shadows.lg,
     overflow: "hidden",
@@ -2700,10 +2652,8 @@ const styles = StyleSheet.create({
     top: 52,
     left: 44,
     right: 100,
-    backgroundColor: Colors.light.backgroundRoot,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: Colors.light.border,
     ...Shadows.lg,
     zIndex: 102,
   },
@@ -2717,11 +2667,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
   },
-  colorDropdownItemCustom: {
-    backgroundColor: Colors.light.backgroundSecondary,
-  },
+  colorDropdownItemCustom: {},
   colorDropdownItemLeft: {
     flexDirection: "row",
     alignItems: "center",
@@ -2732,16 +2679,13 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Colors.light.border,
   },
   colorDropdownItemText: {
     fontSize: 15,
-    color: Colors.light.text,
     fontWeight: "500",
   },
   colorDropdownItemHex: {
     fontSize: 12,
-    color: Colors.light.textSecondary,
     fontFamily: "monospace",
   },
   sizeInputContainer: {
@@ -2753,10 +2697,8 @@ const styles = StyleSheet.create({
     top: 52,
     left: 0,
     right: 56,
-    backgroundColor: Colors.light.backgroundRoot,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: Colors.light.border,
     ...Shadows.lg,
     zIndex: 101,
   },
@@ -2770,19 +2712,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
   },
-  sizeDropdownItemCustom: {
-    backgroundColor: Colors.light.backgroundSecondary,
-  },
+  sizeDropdownItemCustom: {},
   sizeDropdownItemText: {
     fontSize: 15,
-    color: Colors.light.text,
     fontWeight: "500",
   },
   sizeDropdownItemCategory: {
     fontSize: 12,
-    color: Colors.light.textSecondary,
   },
   categoryScroll: {
     maxHeight: 300,
@@ -2794,18 +2731,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
   },
-  categoryItemActive: {
-    backgroundColor: Colors.light.backgroundSecondary,
-  },
+  categoryItemActive: {},
   categoryText: {
     fontSize: 15,
-    color: Colors.light.text,
   },
   categoryTextActive: {
     fontWeight: "600",
-    color: Colors.light.primary,
   },
   labelRow: {
     flexDirection: "row",
@@ -2838,12 +2770,10 @@ const styles = StyleSheet.create({
   },
   archivedVariantCard: {
     opacity: 0.6,
-    backgroundColor: Colors.light.backgroundSecondary,
   },
   archivedVariantTitle: {
     fontSize: 15,
     fontWeight: "600",
-    color: Colors.light.textSecondary,
   },
   unarchiveBtn: {
     flexDirection: "row",
@@ -2864,7 +2794,6 @@ const styles = StyleSheet.create({
   },
   taxCategoryCode: {
     fontSize: 12,
-    color: Colors.light.textSecondary,
     marginTop: 2,
   },
   loadingContainer: {
@@ -2876,7 +2805,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 14,
-    color: Colors.light.textSecondary,
   },
   inputWithUnit: {
     flexDirection: "row",
@@ -2885,7 +2813,6 @@ const styles = StyleSheet.create({
   },
   unitPicker: {
     flexDirection: "row",
-    backgroundColor: Colors.light.backgroundSecondary,
     borderRadius: BorderRadius.sm,
     padding: 2,
   },
@@ -2894,24 +2821,17 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: BorderRadius.xs,
   },
-  unitBtnActive: {
-    backgroundColor: Colors.light.secondary,
-  },
+  unitBtnActive: {},
   unitText: {
     fontSize: 12,
     fontWeight: "600",
-    color: Colors.light.textSecondary,
   },
-  unitTextActive: {
-    color: Colors.light.buttonText,
-  },
+  unitTextActive: {},
   quantityInput: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.light.backgroundSecondary,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
-    borderColor: Colors.light.border,
   },
   quantityBtn: {
     width: 40,
@@ -2936,7 +2856,6 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: 11,
-    color: Colors.light.textSecondary,
     marginTop: Spacing.xs,
   },
   sectionHeader: {
@@ -2946,7 +2865,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: "700",
-    color: Colors.light.textSecondary,
     letterSpacing: 0.5,
   },
   footer: {
@@ -2954,7 +2872,6 @@ const styles = StyleSheet.create({
   },
   saveBtn: {
     width: "100%",
-    backgroundColor: Colors.light.primary,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.full,
     alignItems: "center",
@@ -2964,7 +2881,6 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   saveBtnText: {
-    color: Colors.light.buttonText,
     fontSize: 16,
     fontWeight: "700",
   },
@@ -2977,7 +2893,6 @@ const styles = StyleSheet.create({
   variantChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.light.backgroundSecondary,
     borderRadius: BorderRadius.full,
     paddingVertical: Spacing.xs,
     paddingLeft: Spacing.sm,
@@ -2992,7 +2907,6 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
-    borderColor: Colors.light.border,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -3001,7 +2915,6 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: Colors.light.border,
   },
   addVariantRow: {
     flexDirection: "row",
@@ -3016,22 +2929,18 @@ const styles = StyleSheet.create({
   colorHexText: {
     fontSize: 12,
     fontFamily: "monospace",
-    color: Colors.light.text,
   },
   addVariantBtn: {
     width: 40,
     height: 40,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.light.primary,
     alignItems: "center",
     justifyContent: "center",
   },
   variantCard: {
-    backgroundColor: Colors.light.backgroundSecondary,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.light.border,
     overflow: "hidden",
   },
   variantCardHeader: {
@@ -3048,7 +2957,6 @@ const styles = StyleSheet.create({
   variantCardTitle: {
     fontSize: 15,
     fontWeight: "600",
-    color: Colors.light.text,
   },
   variantCardActions: {
     flexDirection: "row",
@@ -3065,7 +2973,6 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     paddingTop: 0,
     borderTopWidth: 1,
-    borderTopColor: Colors.light.border,
   },
   variantImageRow: {
     flexDirection: "row",
@@ -3077,11 +2984,9 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: BorderRadius.sm,
     borderWidth: 2,
-    borderColor: Colors.light.border,
     borderStyle: "dashed",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: Colors.light.backgroundRoot,
   },
   variantImagePreview: {
     width: "100%",
@@ -3090,7 +2995,6 @@ const styles = StyleSheet.create({
   },
   variantImageText: {
     fontSize: 10,
-    color: Colors.light.textSecondary,
     marginTop: 4,
   },
   variantFieldsColumn: {
@@ -3105,30 +3009,24 @@ const styles = StyleSheet.create({
   variantFieldLabel: {
     fontSize: 12,
     fontWeight: "500",
-    color: Colors.light.textSecondary,
     width: 45,
   },
   variantFieldInput: {
     flex: 1,
-    backgroundColor: Colors.light.backgroundRoot,
     borderRadius: BorderRadius.sm,
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     fontSize: 14,
-    color: Colors.light.text,
     borderWidth: 1,
-    borderColor: Colors.light.border,
   },
   variantImagePickerLarge: {
     width: "100%",
     height: 120,
     borderRadius: BorderRadius.sm,
     borderWidth: 2,
-    borderColor: Colors.light.border,
     borderStyle: "dashed",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: Colors.light.backgroundRoot,
     marginBottom: Spacing.md,
   },
   stockControl: {
@@ -3141,29 +3039,23 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
-    borderColor: Colors.light.border,
-    backgroundColor: Colors.light.backgroundSecondary,
     alignItems: "center",
     justifyContent: "center",
   },
   stockInput: {
     flex: 1,
-    backgroundColor: Colors.light.backgroundRoot,
     borderRadius: BorderRadius.sm,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     fontSize: 16,
     fontWeight: "600",
-    color: Colors.light.text,
     borderWidth: 1,
-    borderColor: Colors.light.border,
     textAlign: "center",
   },
   generateBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    backgroundColor: Colors.light.primary,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.sm,
@@ -3171,11 +3063,9 @@ const styles = StyleSheet.create({
   generateBtnText: {
     fontSize: 12,
     fontWeight: "600",
-    color: Colors.light.buttonText,
   },
   requiredHint: {
     fontSize: 12,
-    color: Colors.light.textSecondary,
     fontStyle: "italic",
     marginTop: -Spacing.sm,
     marginBottom: Spacing.md,

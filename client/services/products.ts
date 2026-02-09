@@ -1,4 +1,5 @@
 import { supabase, DbProduct } from "@/lib/supabase";
+import { getApiUrl } from "@/lib/query-client";
 import { Product, ColorVariant, SizeVariant, ProductVariant } from "@/types";
 
 export interface ProductInput {
@@ -96,21 +97,38 @@ function inputToDb(input: ProductInput, sellerId: string) {
 }
 
 class ProductsService {
+  // Fetch reserved quantities from the server (items held in live show carts)
+  private async fetchReservedQuantities(): Promise<Record<string, number>> {
+    try {
+      const baseUrl = getApiUrl();
+      const res = await fetch(`${baseUrl}/api/reservations/quantities`);
+      if (!res.ok) return {};
+      const data = await res.json();
+      return data.reservedQuantities || {};
+    } catch {
+      return {};
+    }
+  }
+
   // List all products (for explore/browse) with seller info
+  // Subtracts active show reservations from displayed stock
   async listAllProducts(): Promise<Product[]> {
     try {
-      const { data, error } = await supabase
-        .from("products")
-        .select(
-          `
+      const [{ data, error }, reservedQty] = await Promise.all([
+        supabase
+          .from("products")
+          .select(
+            `
           *,
           profiles:seller_id (
             name,
             avatar_url
           )
         `,
-        )
-        .order("created_at", { ascending: false });
+          )
+          .order("created_at", { ascending: false }),
+        this.fetchReservedQuantities(),
+      ]);
 
       if (error) throw error;
       return (data || []).map((row) => {
@@ -119,6 +137,14 @@ class ProductsService {
         if (row.profiles) {
           product.sellerName = row.profiles.name || "Unknown Seller";
           product.sellerAvatar = row.profiles.avatar_url || null;
+        }
+        // Subtract reserved quantities from available stock
+        const reserved = reservedQty[product.id] || 0;
+        if (reserved > 0 && product.quantityInStock != null) {
+          product.quantityInStock = Math.max(
+            0,
+            product.quantityInStock - reserved,
+          );
         }
         return product;
       });

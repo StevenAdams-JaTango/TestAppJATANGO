@@ -2,6 +2,7 @@ import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import PurchasesScreen from "@/screens/PurchasesScreen";
+import { CartIcon } from "@/components/CartIcon";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 
 export type PurchasesStackParamList = {
@@ -20,6 +21,7 @@ export default function PurchasesStackNavigator() {
         component={PurchasesScreen}
         options={{
           headerTitle: "My Purchases",
+          headerRight: () => <CartIcon />,
         }}
       />
     </Stack.Navigator>

@@ -15,7 +15,9 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ProductCard } from "@/components/ProductCard";
-import { Colors, BorderRadius, Spacing, Shadows } from "@/constants/theme";
+import { CartIcon } from "@/components/CartIcon";
+import { useTheme } from "@/hooks/useTheme";
+import { BorderRadius, Spacing } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { Product } from "@/types";
 import { productsService } from "@/services/products";
@@ -25,6 +27,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 export default function ProductsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
+  const { theme } = useTheme();
   const [products, setProducts] = useState<Product[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -98,31 +101,58 @@ export default function ProductsScreen() {
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
-      <View style={styles.emptyIconContainer}>
-        <Feather name="package" size={40} color={Colors.light.secondary} />
+      <View
+        style={[
+          styles.emptyIconContainer,
+          { backgroundColor: theme.backgroundTertiary },
+        ]}
+      >
+        <Feather name="package" size={40} color={theme.secondary} />
       </View>
-      <ThemedText style={styles.emptyTitle}>No Products Yet</ThemedText>
-      <ThemedText style={styles.emptySubtitle}>
+      <ThemedText style={[styles.emptyTitle, { color: theme.text }]}>
+        No Products Yet
+      </ThemedText>
+      <ThemedText
+        style={[styles.emptySubtitle, { color: theme.textSecondary }]}
+      >
         Add your first product to start selling in live shows
       </ThemedText>
-      <Pressable style={styles.emptyBtn} onPress={handleAddProduct}>
-        <Feather name="plus" size={18} color={Colors.light.buttonText} />
-        <ThemedText style={styles.emptyBtnText}>Add Product</ThemedText>
+      <Pressable
+        style={[styles.emptyBtn, { backgroundColor: theme.primary }]}
+        onPress={handleAddProduct}
+      >
+        <Feather name="plus" size={18} color={theme.buttonText} />
+        <ThemedText style={[styles.emptyBtnText, { color: theme.buttonText }]}>
+          Add Product
+        </ThemedText>
       </Pressable>
     </View>
   );
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View
+      style={[
+        styles.container,
+        { paddingTop: insets.top, backgroundColor: theme.backgroundRoot },
+      ]}
+    >
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { borderBottomColor: theme.border }]}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Feather name="arrow-left" size={24} color={Colors.light.text} />
+          <Feather name="arrow-left" size={24} color={theme.text} />
         </Pressable>
-        <ThemedText style={styles.headerTitle}>My Products</ThemedText>
-        <Pressable style={styles.addBtn} onPress={handleAddProduct}>
-          <Feather name="plus" size={20} color={Colors.light.buttonText} />
-        </Pressable>
+        <ThemedText style={[styles.headerTitle, { color: theme.text }]}>
+          My Products
+        </ThemedText>
+        <View style={styles.headerRight}>
+          <CartIcon />
+          <Pressable
+            style={[styles.addBtn, { backgroundColor: theme.primary }]}
+            onPress={handleAddProduct}
+          >
+            <Feather name="plus" size={20} color={theme.buttonText} />
+          </Pressable>
+        </View>
       </View>
 
       {/* Products List */}
@@ -140,7 +170,7 @@ export default function ProductsScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={Colors.light.primary}
+            tintColor={theme.primary}
           />
         }
       />
@@ -163,7 +193,6 @@ export default function ProductsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.backgroundRoot,
   },
   header: {
     flexDirection: "row",
@@ -172,7 +201,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
   },
   backBtn: {
     width: 40,
@@ -183,13 +211,16 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: Colors.light.text,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
   },
   addBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.light.primary,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -199,140 +230,6 @@ const styles = StyleSheet.create({
   },
   emptyListContent: {
     flex: 1,
-  },
-  productCard: {
-    flexDirection: "row",
-    backgroundColor: "#FFFFFF",
-    borderRadius: BorderRadius.lg,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.06)",
-    ...Shadows.md,
-  },
-  imageContainer: {
-    position: "relative",
-  },
-  productImage: {
-    width: 100,
-    height: 120,
-  },
-  variantBadge: {
-    position: "absolute",
-    bottom: 8,
-    left: 8,
-    backgroundColor: Colors.light.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  variantBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
-  productInfo: {
-    flex: 1,
-    padding: Spacing.md,
-    justifyContent: "space-between",
-  },
-  productHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: Spacing.sm,
-  },
-  productName: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: "700",
-    color: Colors.light.text,
-    letterSpacing: -0.3,
-  },
-  deleteBtn: {
-    padding: 4,
-    opacity: 0.6,
-  },
-  priceRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 4,
-  },
-  productPrice: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: Colors.light.primary,
-  },
-  stockBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  stockDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  stockText: {
-    fontSize: 11,
-    color: Colors.light.textSecondary,
-    fontWeight: "500",
-  },
-  variantsRow: {
-    marginTop: 10,
-  },
-  colorSwatches: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  colorSwatch: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  moreIndicator: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.light.backgroundTertiary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  moreText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: Colors.light.textSecondary,
-  },
-  sizesRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 8,
-  },
-  sizeChip: {
-    backgroundColor: Colors.light.primary + "15",
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.light.primary + "30",
-  },
-  sizeChipText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: Colors.light.primary,
-  },
-  editArrow: {
-    justifyContent: "center",
-    paddingRight: Spacing.sm,
   },
   emptyContainer: {
     flex: 1,
@@ -344,7 +241,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: Colors.light.backgroundTertiary,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.lg,
@@ -352,12 +248,10 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: Colors.light.text,
     marginBottom: Spacing.sm,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: Colors.light.textSecondary,
     textAlign: "center",
     maxWidth: 280,
     marginBottom: Spacing.lg,
@@ -366,13 +260,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    backgroundColor: Colors.light.primary,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
   },
   emptyBtnText: {
-    color: Colors.light.buttonText,
     fontSize: 15,
     fontWeight: "700",
   },

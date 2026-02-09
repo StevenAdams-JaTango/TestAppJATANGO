@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import ShowsScreen from "@/screens/ShowsScreen";
 import ShowSetupScreen from "@/screens/ShowSetupScreen";
+import { AppHeader } from "@/components/AppHeader";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 
 export type ShowsStackParamList = {
@@ -22,6 +23,8 @@ export default function ShowsStackNavigator() {
         component={ShowsScreen}
         options={{
           headerTitle: "My Shows",
+          headerTransparent: false,
+          header: () => <AppHeader title="My Shows" />,
         }}
       />
       <Stack.Screen
@@ -29,6 +32,8 @@ export default function ShowsStackNavigator() {
         component={ShowSetupScreen}
         options={{
           headerTitle: "Show Setup",
+          headerTransparent: false,
+          header: () => <AppHeader title="Show Setup" showBack />,
         }}
       />
     </Stack.Navigator>

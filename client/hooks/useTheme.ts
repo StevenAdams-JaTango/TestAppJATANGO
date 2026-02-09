@@ -1,12 +1,6 @@
-import { Colors } from "@/constants/theme";
+import { useThemeContext } from "@/contexts/ThemeContext";
 
 export function useTheme() {
-  // Force light theme to match the reference design
-  const isDark = false;
-  const theme = Colors.light;
-
-  return {
-    theme,
-    isDark,
-  };
+  const { theme, isDark } = useThemeContext();
+  return { theme, isDark };
 }

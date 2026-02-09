@@ -15,7 +15,7 @@ import Animated, { FadeIn } from "react-native-reanimated";
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
-import { Colors, BorderRadius, Spacing, Shadows } from "@/constants/theme";
+import { BorderRadius, Spacing, Shadows } from "@/constants/theme";
 import { Product } from "@/types";
 
 interface ProductSelectionSheetProps {
@@ -49,7 +49,7 @@ function ProductItem({ product, isSelected, onToggle }: ProductItemProps) {
       style={[
         styles.productItem,
         { backgroundColor: theme.backgroundDefault },
-        isSelected && { borderColor: Colors.light.primary, borderWidth: 2 },
+        isSelected && { borderColor: theme.primary, borderWidth: 2 },
       ]}
       testID={`select-product-${product.id}`}
     >
@@ -69,12 +69,12 @@ function ProductItem({ product, isSelected, onToggle }: ProductItemProps) {
       <View
         style={[
           styles.checkbox,
-          isSelected && { backgroundColor: Colors.light.primary },
-          { borderColor: isSelected ? Colors.light.primary : theme.border },
+          isSelected && { backgroundColor: theme.primary },
+          { borderColor: isSelected ? theme.primary : theme.border },
         ]}
       >
         {isSelected ? (
-          <Feather name="check" size={14} color={Colors.light.buttonText} />
+          <Feather name="check" size={14} color={theme.buttonText} />
         ) : null}
       </View>
     </AnimatedPressable>

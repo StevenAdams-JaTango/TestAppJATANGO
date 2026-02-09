@@ -25,6 +25,11 @@ DROP POLICY IF EXISTS "Sellers can delete own shows" ON public.shows;
 DROP POLICY IF EXISTS "Show products are viewable by everyone" ON public.show_products;
 DROP POLICY IF EXISTS "Sellers can manage show products for own shows" ON public.show_products;
 
+DROP POLICY IF EXISTS "Users can view own cart items" ON public.cart_items;
+DROP POLICY IF EXISTS "Users can insert own cart items" ON public.cart_items;
+DROP POLICY IF EXISTS "Users can update own cart items" ON public.cart_items;
+DROP POLICY IF EXISTS "Users can delete own cart items" ON public.cart_items;
+
 -- ============================================
 -- CREATE TABLES (IF NOT EXISTS)
 -- ============================================
@@ -99,6 +104,24 @@ CREATE TABLE IF NOT EXISTS public.show_products (
   UNIQUE(show_id, product_id)
 );
 
+-- Cart items table
+CREATE TABLE IF NOT EXISTS public.cart_items (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  product_id UUID REFERENCES public.products(id) ON DELETE CASCADE NOT NULL,
+  seller_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity > 0),
+  selected_color_id TEXT,
+  selected_color_name TEXT,
+  selected_size_id TEXT,
+  selected_size_name TEXT,
+  selected_variant_id TEXT,
+  unit_price DECIMAL(10,2) NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, product_id, selected_color_id, selected_size_id)
+);
+
 -- ============================================
 -- CREATE INDEXES
 -- ============================================
@@ -109,6 +132,9 @@ CREATE INDEX IF NOT EXISTS idx_shows_seller_id ON public.shows(seller_id);
 CREATE INDEX IF NOT EXISTS idx_shows_status ON public.shows(status);
 CREATE INDEX IF NOT EXISTS idx_show_products_show_id ON public.show_products(show_id);
 
+CREATE INDEX IF NOT EXISTS idx_cart_items_user_id ON public.cart_items(user_id);
+CREATE INDEX IF NOT EXISTS idx_cart_items_seller_id ON public.cart_items(seller_id);
+
 -- ============================================
 -- ENABLE ROW LEVEL SECURITY
 -- ============================================
@@ -117,6 +143,7 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.shows ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.show_products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cart_items ENABLE ROW LEVEL SECURITY;
 
 -- ============================================
 -- CREATE POLICIES
@@ -184,6 +211,23 @@ CREATE POLICY "Sellers can manage show products for own shows"
     )
   );
 
+-- Cart policies - users can only access their own cart
+CREATE POLICY "Users can view own cart items"
+  ON public.cart_items FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own cart items"
+  ON public.cart_items FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own cart items"
+  ON public.cart_items FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own cart items"
+  ON public.cart_items FOR DELETE
+  USING (auth.uid() = user_id);
+
 -- ============================================
 -- FUNCTIONS AND TRIGGERS
 -- ============================================
@@ -201,6 +245,7 @@ $$ language 'plpgsql';
 DROP TRIGGER IF EXISTS update_profiles_updated_at ON public.profiles;
 DROP TRIGGER IF EXISTS update_products_updated_at ON public.products;
 DROP TRIGGER IF EXISTS update_shows_updated_at ON public.shows;
+DROP TRIGGER IF EXISTS update_cart_items_updated_at ON public.cart_items;
 
 CREATE TRIGGER update_profiles_updated_at
   BEFORE UPDATE ON public.profiles
@@ -212,6 +257,10 @@ CREATE TRIGGER update_products_updated_at
 
 CREATE TRIGGER update_shows_updated_at
   BEFORE UPDATE ON public.shows
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_cart_items_updated_at
+  BEFORE UPDATE ON public.cart_items
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Function to handle new user signup (creates profile automatically)
@@ -245,6 +294,13 @@ END $$;
 DO $$
 BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.shows;
+EXCEPTION WHEN duplicate_object THEN
+  NULL;
+END $$;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.cart_items;
 EXCEPTION WHEN duplicate_object THEN
   NULL;
 END $$;

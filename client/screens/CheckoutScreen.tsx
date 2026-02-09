@@ -11,7 +11,12 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import {
+  useNavigation,
+  useRoute,
+  useIsFocused,
+  RouteProp,
+} from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useStripe } from "@/hooks/useStripePayment";
 import * as Haptics from "expo-haptics";
@@ -41,6 +46,7 @@ export default function CheckoutScreen() {
   const { cart, clearStoreCart } = useCart();
   const { user } = useAuth();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const isFocused = useIsFocused();
 
   const { sellerId } = route.params;
   const store = cart.stores.find((s) => s.sellerId === sellerId);
@@ -72,9 +78,9 @@ export default function CheckoutScreen() {
     updatedAt: cart.updatedAt,
   };
 
-  // Load saved cards and addresses for web checkout
+  // Load saved cards (web only) and addresses (all platforms)
   useEffect(() => {
-    if (!isWeb || !user?.id || totalItems === 0) return;
+    if (!user?.id || totalItems === 0) return;
 
     let cancelled = false;
 
@@ -82,7 +88,9 @@ export default function CheckoutScreen() {
       setIsLoadingData(true);
       try {
         const [cards, addrs] = await Promise.all([
-          settingsService.fetchPaymentMethods(user.id),
+          isWeb
+            ? settingsService.fetchPaymentMethods(user.id)
+            : Promise.resolve([]),
           settingsService.fetchAddresses(user.id),
         ]);
 
@@ -92,13 +100,15 @@ export default function CheckoutScreen() {
         setAddresses(addrs);
 
         // Auto-select defaults
-        const defaultCard = cards.find((c) => c.isDefault) || cards[0];
-        if (defaultCard) setSelectedCardId(defaultCard.id);
+        if (isWeb) {
+          const defaultCard = cards.find((c) => c.isDefault) || cards[0];
+          if (defaultCard) setSelectedCardId(defaultCard.id);
+        }
 
         const defaultAddr = addrs.find((a) => a.isDefault) || addrs[0];
         if (defaultAddr) setSelectedAddressId(defaultAddr.id);
 
-        setIsInitialized(true);
+        if (isWeb) setIsInitialized(true);
       } catch (err: any) {
         if (!cancelled) {
           console.error("[Checkout] Failed to load checkout data:", err);
@@ -112,7 +122,7 @@ export default function CheckoutScreen() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, totalItems]);
+  }, [user?.id, totalItems, isFocused]);
 
   // Initialize Stripe PaymentSheet for native
   useEffect(() => {
@@ -230,6 +240,11 @@ export default function CheckoutScreen() {
   const handleNativePay = async () => {
     if (!isInitialized || !paymentIntentId || !user?.id) return;
 
+    if (addresses.length > 0 && !selectedAddressId) {
+      Alert.alert("Address Required", "Please select a shipping address.");
+      return;
+    }
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsLoading(true);
 
@@ -249,11 +264,23 @@ export default function CheckoutScreen() {
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
+      const selectedAddr = addresses.find((a) => a.id === selectedAddressId);
       const result = await checkoutService.confirmOrder(
         paymentIntentId,
         storeCart,
         user.id,
-        undefined, // shippingAddress — native flow doesn't select address yet
+        selectedAddr
+          ? {
+              name: selectedAddr.name,
+              addressLine1: selectedAddr.addressLine1,
+              addressLine2: selectedAddr.addressLine2 || undefined,
+              city: selectedAddr.city,
+              state: selectedAddr.state,
+              zip: selectedAddr.zip,
+              country: selectedAddr.country,
+              phone: selectedAddr.phone || undefined,
+            }
+          : undefined,
       );
 
       await clearStoreCart(sellerId);
@@ -276,9 +303,10 @@ export default function CheckoutScreen() {
 
   const handlePay = isWeb ? handleWebPay : handleNativePay;
 
+  const hasAddress = addresses.length === 0 || !!selectedAddressId;
   const canPay = isWeb
     ? !!selectedCardId && !!selectedAddressId && !isLoading
-    : isInitialized && !isLoading;
+    : isInitialized && !isLoading && hasAddress;
 
   const getItemPrice = (item: any): number => {
     return (
@@ -494,79 +522,95 @@ export default function CheckoutScreen() {
                 ))}
               </View>
             )}
+          </>
+        )}
 
-            <ThemedText style={styles.sectionTitle}>
-              Shipping Address
+        {/* Shipping Address (all platforms) */}
+        <ThemedText style={styles.sectionTitle}>Shipping Address</ThemedText>
+        {isLoadingData ? (
+          <ActivityIndicator
+            size="small"
+            color={theme.primary}
+            style={styles.sectionLoader}
+          />
+        ) : addresses.length === 0 ? (
+          <Pressable
+            style={[
+              styles.emptyCard,
+              {
+                backgroundColor: theme.backgroundRoot,
+                borderColor: theme.border,
+              },
+            ]}
+            onPress={() => navigation.navigate("ShippingAddresses")}
+          >
+            <Feather name="plus-circle" size={20} color={theme.primary} />
+            <ThemedText
+              style={[styles.emptyCardText, { color: theme.primary }]}
+            >
+              Add a shipping address
             </ThemedText>
-            {isLoadingData ? (
-              <ActivityIndicator
-                size="small"
-                color={theme.primary}
-                style={styles.sectionLoader}
-              />
-            ) : addresses.length === 0 ? (
+          </Pressable>
+        ) : (
+          <View style={styles.selectionList}>
+            {addresses.map((addr) => (
               <Pressable
+                key={addr.id}
                 style={[
-                  styles.emptyCard,
+                  styles.selectionItem,
                   {
                     backgroundColor: theme.backgroundRoot,
-                    borderColor: theme.border,
+                    borderColor:
+                      selectedAddressId === addr.id
+                        ? theme.primary
+                        : theme.border,
+                    borderWidth: selectedAddressId === addr.id ? 2 : 1,
                   },
                 ]}
-                onPress={() => navigation.navigate("ShippingAddresses")}
+                onPress={() => setSelectedAddressId(addr.id)}
               >
-                <Feather name="plus-circle" size={20} color={theme.primary} />
-                <ThemedText
-                  style={[styles.emptyCardText, { color: theme.primary }]}
-                >
-                  Add a shipping address
-                </ThemedText>
-              </Pressable>
-            ) : (
-              <View style={styles.selectionList}>
-                {addresses.map((addr) => (
-                  <Pressable
-                    key={addr.id}
+                <Feather name="map-pin" size={20} color={theme.text} />
+                <View style={styles.selectionInfo}>
+                  <ThemedText style={styles.selectionTitle}>
+                    {addr.name}
+                  </ThemedText>
+                  <ThemedText
                     style={[
-                      styles.selectionItem,
-                      {
-                        backgroundColor: theme.backgroundRoot,
-                        borderColor:
-                          selectedAddressId === addr.id
-                            ? theme.primary
-                            : theme.border,
-                        borderWidth: selectedAddressId === addr.id ? 2 : 1,
-                      },
+                      styles.selectionSubtitle,
+                      { color: theme.textSecondary },
                     ]}
-                    onPress={() => setSelectedAddressId(addr.id)}
                   >
-                    <Feather name="map-pin" size={20} color={theme.text} />
-                    <View style={styles.selectionInfo}>
-                      <ThemedText style={styles.selectionTitle}>
-                        {addr.name}
-                      </ThemedText>
-                      <ThemedText
-                        style={[
-                          styles.selectionSubtitle,
-                          { color: theme.textSecondary },
-                        ]}
-                      >
-                        {addr.addressLine1}, {addr.city}, {addr.state}{" "}
-                        {addr.zip}
-                      </ThemedText>
-                    </View>
-                    {selectedAddressId === addr.id && (
-                      <Feather
-                        name="check-circle"
-                        size={20}
-                        color={theme.primary}
-                      />
-                    )}
-                  </Pressable>
-                ))}
-              </View>
-            )}
-          </>
+                    {addr.addressLine1}, {addr.city}, {addr.state} {addr.zip}
+                  </ThemedText>
+                </View>
+                {selectedAddressId === addr.id && (
+                  <Feather
+                    name="check-circle"
+                    size={20}
+                    color={theme.primary}
+                  />
+                )}
+              </Pressable>
+            ))}
+          </View>
+        )}
+        {!isLoadingData && (
+          <Pressable
+            style={[
+              styles.addAddressButton,
+              {
+                borderColor: theme.border,
+              },
+            ]}
+            onPress={() => navigation.navigate("ShippingAddresses")}
+          >
+            <Feather name="plus-circle" size={18} color={theme.primary} />
+            <ThemedText
+              style={[styles.addAddressText, { color: theme.primary }]}
+            >
+              Add new address
+            </ThemedText>
+          </Pressable>
         )}
 
         <ThemedText style={styles.sectionTitle}>Order Summary</ThemedText>
@@ -738,6 +782,18 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   emptyCardText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  addAddressButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.sm,
+    marginTop: Spacing.sm,
+    gap: Spacing.xs,
+  },
+  addAddressText: {
     fontSize: 14,
     fontWeight: "600",
   },

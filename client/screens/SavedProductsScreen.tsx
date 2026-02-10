@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useHeaderHeight } from "@react-navigation/elements";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 
@@ -21,6 +22,7 @@ import { savedProductsService } from "@/services/savedProducts";
 
 export default function SavedProductsScreen() {
   const insets = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
   const { theme } = useTheme();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,7 +91,10 @@ export default function SavedProductsScreen() {
         )}
         contentContainerStyle={[
           styles.listContent,
-          { paddingBottom: insets.bottom + 100 },
+          {
+            paddingTop: headerHeight + Spacing.md,
+            paddingBottom: insets.bottom + 100,
+          },
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -143,7 +148,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: Spacing.md,
-    paddingTop: Spacing.lg,
   },
   row: {
     gap: Spacing.md,

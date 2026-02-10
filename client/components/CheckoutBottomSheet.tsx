@@ -920,7 +920,8 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing["5xl"],
     borderTopWidth: StyleSheet.hairlineWidth,
     gap: Spacing.sm,
   },

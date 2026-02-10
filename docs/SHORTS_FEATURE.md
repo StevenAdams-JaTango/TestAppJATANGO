@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Shorts feature allows sellers to upload short-form vertical videos (max 60 seconds) that users can browse in a TikTok-style fullscreen swipe feed. It includes video playback, likes, view tracking, and resume-from-progress functionality.
+The Shorts feature allows sellers to upload short-form vertical videos (max 60 seconds) that users can browse in a TikTok-style fullscreen swipe feed. It includes video playback, likes, comments, view tracking, optional product attachment, and resume-from-progress functionality.
 
 ---
 
@@ -10,12 +10,13 @@ The Shorts feature allows sellers to upload short-form vertical videos (max 60 s
 
 ### Database (Supabase)
 
-Three tables power the feature, defined in `supabase-shorts-migration.sql`:
+Four tables power the feature, defined in `supabase-shorts-migration.sql` and `supabase-shorts-comments-products-migration.sql`:
 
 | Table | Purpose |
-|-------|---------|
-| `shorts` | Stores video metadata (URL, caption, duration, counts) |
+|-------|--------|
+| `shorts` | Stores video metadata (URL, caption, duration, counts, optional product_id) |
 | `short_likes` | Junction table tracking which users liked which shorts |
+| `short_comments` | Comments on shorts with user references |
 | `short_progress` | Tracks each user's last-watched short for feed resume |
 
 **Key columns on `shorts`:**
@@ -24,17 +25,26 @@ Three tables power the feature, defined in `supabase-shorts-migration.sql`:
 - `thumbnail_url` — Optional cover image URL
 - `caption` — Up to 200 characters
 - `duration` — Video length in seconds (max 60)
-- `view_count` / `like_count` — Denormalized counters updated via RPC
+- `view_count` / `like_count` / `comment_count` — Denormalized counters updated via RPC
+- `product_id` — Optional reference to `products(id)`, allows attaching a product to a short
+
+**Key columns on `short_comments`:**
+- `short_id` — References `shorts(id)`
+- `user_id` — References `profiles(id)`, the commenter
+- `text` — Comment text (1–500 characters)
 
 **RPC Functions:**
 - `increment_short_views(short_id)` — Atomically increments view count
 - `increment_short_likes(short_id)` — Atomically increments like count
 - `decrement_short_likes(short_id)` — Atomically decrements like count
+- `increment_short_comments(short_id)` — Atomically increments comment count
+- `decrement_short_comments(short_id)` — Atomically decrements comment count
 
 **RLS Policies:**
-- Anyone can read shorts and likes
+- Anyone can read shorts, likes, and comments
 - Only authenticated users can create shorts (must be the seller)
 - Only the seller can delete their own shorts
+- Authenticated users can post comments; users can delete their own comments
 - Users can only manage their own likes and progress
 
 ### Storage (Supabase Storage)
@@ -81,7 +91,8 @@ For production at scale, consider integrating **Mux** for adaptive bitrate strea
 ```
 client/
 ├── components/
-│   └── ShortCard.tsx              # Fullscreen video card with overlays
+│   ├── ShortCard.tsx              # Fullscreen video card with overlays
+│   └── ShortCommentsSheet.tsx     # Comments bottom sheet modal
 ├── screens/
 │   ├── ShortsScreen.tsx           # Main feed (vertical swipe, pagination, resume)
 │   ├── UploadShortScreen.tsx      # Upload flow (video picker, thumbnail, caption)
@@ -112,17 +123,39 @@ Fullscreen video player card rendered inside the feed. Features:
 - **Tap to play/pause** with play icon overlay
 - **Mute toggle** button
 - **Like button** with optimistic UI (instant count update, async API call)
+- **Comment button** — opens `ShortCommentsSheet` bottom sheet with comment count
 - **View count** display
+- **Product card overlay** — if a product is attached, shows a tappable card with image, name, and price that opens `ProductDetailSheet`
 - **Seller info** — avatar + name, tappable to navigate to store profile
 - **Caption** overlay at the bottom
+- **Error recovery** — auto-retry on playback failure, tap-to-retry overlay
 
 **Props:**
 | Prop | Type | Description |
 |------|------|-------------|
 | `short` | `Short` | The short data object |
 | `isVisible` | `boolean` | Whether this card is currently on-screen |
+| `currentUserId` | `string?` | Current user ID (for delete button visibility) |
 | `onLike` | `(shortId: string) => void` | Like callback |
 | `onUnlike` | `(shortId: string) => void` | Unlike callback |
+| `onDelete` | `(shortId: string) => void?` | Delete callback (owner only) |
+
+### ShortCommentsSheet (`client/components/ShortCommentsSheet.tsx`)
+
+Bottom sheet modal for viewing and posting comments on a short. Features:
+
+- **Comment list** — Scrollable list with user avatars, names, timestamps
+- **Post comment** — Text input with send button
+- **Delete own comments** — Trash icon on user's own comments
+- **Optimistic count** — Updates parent's comment count via callback
+
+**Props:**
+| Prop | Type | Description |
+|------|------|-------------|
+| `visible` | `boolean` | Whether the sheet is visible |
+| `shortId` | `string` | The short to show comments for |
+| `onClose` | `() => void` | Close callback |
+| `onCommentCountChange` | `(delta: number) => void?` | Callback when comment count changes |
 
 ### ShortsScreen (`client/screens/ShortsScreen.tsx`)
 
@@ -143,8 +176,10 @@ Modal screen for uploading a new short. Features:
 - **Video preview** — Shows selected video with duration badge and change button
 - **Thumbnail picker** — Optional cover image (9:16 aspect ratio)
 - **Caption input** — Multiline, 200 character limit with counter
-- **Upload flow** — Uploads video → uploads thumbnail (if any) → creates DB record
+- **Product picker** — Horizontal scrollable list of seller's products; tap to attach, tap X to remove
+- **Upload flow** — Uploads video → uploads thumbnail (if any) → creates DB record with optional product_id
 - **Discard confirmation** — Warns before navigating away with unsaved video
+- **Post-upload navigation** — Navigates to Profile tab after successful upload
 
 ### StoreShortsScreen (`client/screens/StoreShortsScreen.tsx`)
 
@@ -164,15 +199,18 @@ Store-specific shorts viewer, opened from store profile or "My Shorts" in profil
 
 | Function | Description |
 |----------|-------------|
-| `fetchFeed(userId, page, limit)` | Fetches paginated feed of all shorts with like status |
+| `fetchFeed(userId, page, limit)` | Fetches paginated feed of all shorts with like status and product joins |
 | `fetchByStore(sellerId, userId?)` | Fetches all shorts for a specific store |
-| `createShort({videoUrl, thumbnailUrl?, caption, duration})` | Creates a new short |
+| `createShort({videoUrl, thumbnailUrl?, caption, duration, productId?})` | Creates a new short with optional product attachment |
 | `deleteShort(shortId)` | Deletes a short (seller only) |
 | `likeShort(shortId, userId)` | Likes a short + increments count via RPC |
 | `unlikeShort(shortId, userId)` | Unlikes a short + decrements count via RPC |
 | `incrementViewCount(shortId)` | Increments view count via RPC |
 | `getProgress(userId)` | Gets the last-watched short ID |
 | `saveProgress(userId, shortId)` | Upserts the user's last-watched short |
+| `fetchComments(shortId)` | Fetches all comments for a short with user profiles |
+| `postComment(shortId, text)` | Posts a comment + increments count via RPC |
+| `deleteComment(commentId, shortId)` | Deletes a comment + decrements count via RPC |
 
 ### storage.ts additions
 
@@ -229,14 +267,29 @@ interface Short {
   id: string;
   sellerId: string;
   sellerName: string;
-  sellerAvatar?: string;
+  sellerAvatar: string | null;
   videoUrl: string;
-  thumbnailUrl?: string;
+  thumbnailUrl: string | null;
   caption: string;
   duration: number;
   viewCount: number;
   likeCount: number;
+  commentCount: number;
   isLiked?: boolean;
+  createdAt: string;
+  productId?: string | null;
+  productName?: string | null;
+  productImage?: string | null;
+  productPrice?: number | null;
+}
+
+interface ShortComment {
+  id: string;
+  shortId: string;
+  userId: string;
+  userName: string;
+  userAvatar: string | null;
+  text: string;
   createdAt: string;
 }
 
@@ -248,9 +301,8 @@ interface ShortLike {
 }
 
 interface ShortProgress {
-  id: string;
   userId: string;
-  lastShortId: string;
+  lastShortId: string | null;
   updatedAt: string;
 }
 ```
@@ -261,15 +313,17 @@ interface ShortProgress {
 
 1. ✅ Install `expo-av`: `npx expo install expo-av`
 2. ⬜ Run `supabase-shorts-migration.sql` in Supabase SQL Editor
-3. ⬜ Create `short-videos` storage bucket in Supabase (set to **public**)
-4. ⬜ (Optional) Create `short-thumbnails` bucket or reuse `product-images`
+3. ⬜ Run `supabase-shorts-comments-products-migration.sql` in Supabase SQL Editor
+4. ⬜ Create `short-videos` storage bucket in Supabase (set to **public**)
+5. ⬜ (Optional) Create `short-thumbnails` bucket or reuse `product-images`
 
 ---
 
 ## Future Enhancements
 
 - [ ] **Adaptive streaming** — Integrate Mux/Cloudflare Stream for HLS multi-resolution playback
-- [ ] **Comments** — Add comment thread per short
+- [x] **Comments** — Comment thread per short with post/delete
+- [x] **Product attachment** — Optionally attach a product to a short, shown as tappable overlay
 - [ ] **Share** — Deep link sharing to specific shorts
 - [ ] **Analytics** — Watch time tracking, completion rate
 - [ ] **Moderation** — Content review before publishing

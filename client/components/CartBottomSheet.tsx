@@ -228,7 +228,6 @@ export function CartBottomSheet({
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               onStoreCheckout(store.sellerId);
-              onClose();
             }}
           >
             <Feather name="credit-card" size={16} color="#fff" />
@@ -247,9 +246,10 @@ export function CartBottomSheet({
 
   return (
     <Modal visible={visible} transparent animationType="none">
-      <Pressable style={styles.overlay} onPress={onClose}>
+      <View style={styles.overlay}>
         <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
-      </Pressable>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+      </View>
 
       <Animated.View
         entering={SlideInDown.springify()}
@@ -472,7 +472,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   footer: {
-    padding: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing["5xl"],
     borderTopWidth: 1,
   },
   totalRow: {

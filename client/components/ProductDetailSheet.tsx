@@ -9,7 +9,6 @@ import {
   Dimensions,
   FlatList,
   Platform,
-  Alert,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -22,6 +21,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useTheme } from "@/hooks/useTheme";
 import { useCart } from "@/contexts/CartContext";
 import { BorderRadius, Spacing } from "@/constants/theme";
@@ -77,6 +77,12 @@ export function ProductDetailSheet({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [dialogInfo, setDialogInfo] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    isError?: boolean;
+  }>({ visible: false, title: "", message: "" });
   const imageScrollRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -326,19 +332,25 @@ export function ProductDetailSheet({
     setCurrentImageIndex(0); // Reset to first image when variant changes
   };
 
+  const showDialog = (title: string, message: string, isError = false) => {
+    setDialogInfo({ visible: true, title, message, isError });
+  };
+
   const handleAddToCart = async () => {
     // Check if variant selection is required
     if (hasColors && !selectedColor) {
-      Alert.alert(
-        "Select a color",
+      showDialog(
+        "Select a Color",
         "Please select a color before adding to cart.",
+        true,
       );
       return;
     }
     if (hasSizes && !selectedSize) {
-      Alert.alert(
-        "Select a size",
+      showDialog(
+        "Select a Size",
         "Please select a size before adding to cart.",
+        true,
       );
       return;
     }
@@ -367,20 +379,25 @@ export function ProductDetailSheet({
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         onAddToCart?.(product);
         if (keepOpenOnAdd) {
-          Alert.alert("Added!", `${product.name} was added to your cart.`);
+          showDialog("Added!", `${product.name} was added to your cart.`);
         } else {
           onClose();
         }
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert(
+        showDialog(
           "Cannot Add to Cart",
           result.message || "Failed to add item to cart.",
+          true,
         );
       }
     } catch (error) {
       console.error("[ProductDetailSheet] Error adding to cart:", error);
-      Alert.alert("Error", "Failed to add item to cart. Please try again.");
+      showDialog(
+        "Error",
+        "Failed to add item to cart. Please try again.",
+        true,
+      );
     } finally {
       setIsAddingToCart(false);
     }
@@ -393,11 +410,19 @@ export function ProductDetailSheet({
     );
     // Check if variant selection is required
     if (hasColors && !selectedColor) {
-      Alert.alert("Select a color", "Please select a color before purchasing.");
+      showDialog(
+        "Select a Color",
+        "Please select a color before purchasing.",
+        true,
+      );
       return;
     }
     if (hasSizes && !selectedSize) {
-      Alert.alert("Select a size", "Please select a size before purchasing.");
+      showDialog(
+        "Select a Size",
+        "Please select a size before purchasing.",
+        true,
+      );
       return;
     }
 
@@ -415,21 +440,22 @@ export function ProductDetailSheet({
       if (result.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         if (keepOpenOnAdd) {
-          Alert.alert("Added!", `${product.name} was added to your cart.`);
+          showDialog("Added!", `${product.name} was added to your cart.`);
         } else {
           onClose();
           (navigation as any).navigate("Cart");
         }
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert(
+        showDialog(
           "Cannot Purchase",
           result.message || "Failed to add item to cart.",
+          true,
         );
       }
     } catch (error) {
       console.error("[ProductDetailSheet] Error with buy now:", error);
-      Alert.alert("Error", "Failed to process. Please try again.");
+      showDialog("Error", "Failed to process. Please try again.", true);
     } finally {
       setIsAddingToCart(false);
     }
@@ -961,6 +987,16 @@ export function ProductDetailSheet({
           )}
         </Animated.View>
       </View>
+      <ConfirmDialog
+        visible={dialogInfo.visible}
+        title={dialogInfo.title}
+        message={dialogInfo.message}
+        confirmText="OK"
+        cancelText=""
+        confirmColor={dialogInfo.isError ? "#ef4444" : theme.primary}
+        onConfirm={() => setDialogInfo((prev) => ({ ...prev, visible: false }))}
+        onCancel={() => setDialogInfo((prev) => ({ ...prev, visible: false }))}
+      />
     </Modal>
   );
 }

@@ -17,9 +17,12 @@ import Animated, { FadeIn } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { Short } from "@/types";
+import { ShortCommentsSheet } from "@/components/ShortCommentsSheet";
+import { ProductDetailSheet } from "@/components/ProductDetailSheet";
+import { Short, Product } from "@/types";
 import { Spacing } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { productsService } from "@/services/products";
 
 const WEB_MAX_WIDTH = 420;
 
@@ -52,9 +55,16 @@ export function ShortCard({
   const [isPlaying, setIsPlaying] = useState(false);
   const [isBuffering, setIsBuffering] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const retryCountRef = useRef(0);
   const [liked, setLiked] = useState(short.isLiked || false);
   const [likeCount, setLikeCount] = useState(short.likeCount);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showComments, setShowComments] = useState(false);
+  const [commentCount, setCommentCount] = useState(short.commentCount);
+  const [showProductSheet, setShowProductSheet] = useState(false);
+  const [fullProduct, setFullProduct] = useState<Product | null>(null);
+  const [loadingProduct, setLoadingProduct] = useState(false);
 
   // Only sync likeCount from realtime updates — don't overwrite local liked state
   useEffect(() => {
@@ -62,23 +72,70 @@ export function ShortCard({
   }, [short.likeCount]);
 
   useEffect(() => {
+    setCommentCount(short.commentCount);
+  }, [short.commentCount]);
+
+  useEffect(() => {
     if (!videoRef.current) return;
     if (isVisible) {
-      videoRef.current.playAsync().catch(() => {});
+      setHasError(false);
+      retryCountRef.current = 0;
+      videoRef.current.playAsync().catch(() => {
+        // Retry once after a short delay
+        setTimeout(() => {
+          videoRef.current?.playAsync().catch(() => {});
+        }, 500);
+      });
+
+      // Safety timeout: if still buffering after 10s, clear the spinner
+      const timeout = setTimeout(() => {
+        setIsBuffering((prev) => {
+          if (prev) {
+            console.warn("[ShortCard] Buffering timeout, clearing spinner");
+            return false;
+          }
+          return prev;
+        });
+      }, 10000);
+
+      return () => clearTimeout(timeout);
     } else {
       videoRef.current.pauseAsync().catch(() => {});
       videoRef.current.setPositionAsync(0).catch(() => {});
     }
   }, [isVisible]);
 
-  const handlePlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
-    if (!status.isLoaded) {
-      setIsBuffering(true);
-      return;
-    }
-    setIsPlaying(status.isPlaying);
-    setIsBuffering(status.isBuffering);
-  }, []);
+  const handlePlaybackStatusUpdate = useCallback(
+    (status: AVPlaybackStatus) => {
+      if (!status.isLoaded) {
+        if (status.error) {
+          console.warn("[ShortCard] Playback error:", status.error);
+          setHasError(true);
+          setIsBuffering(false);
+
+          // Auto-retry up to 2 times
+          if (retryCountRef.current < 2) {
+            retryCountRef.current += 1;
+            setTimeout(() => {
+              videoRef.current?.unloadAsync().then(() => {
+                videoRef.current
+                  ?.loadAsync(
+                    { uri: short.videoUrl },
+                    { shouldPlay: isVisible },
+                  )
+                  .catch(() => {});
+              });
+            }, 1000);
+          }
+        }
+        return;
+      }
+      setHasError(false);
+      setIsPlaying(status.isPlaying);
+      setIsBuffering(status.isBuffering);
+    },
+    [short.videoUrl, isVisible],
+  );
 
   const handleTogglePlay = useCallback(() => {
     if (!videoRef.current) return;
@@ -169,10 +226,29 @@ export function ShortCard({
           </View>
         )}
 
-        {!isPlaying && !isBuffering && isVisible && (
+        {!isPlaying && !isBuffering && !hasError && isVisible && (
           <View style={styles.playOverlay}>
             <Feather name="play" size={48} color="rgba(255,255,255,0.8)" />
           </View>
+        )}
+
+        {hasError && isVisible && (
+          <Pressable
+            style={styles.errorOverlay}
+            onPress={() => {
+              setHasError(false);
+              setIsBuffering(true);
+              retryCountRef.current = 0;
+              videoRef.current?.unloadAsync().then(() => {
+                videoRef.current
+                  ?.loadAsync({ uri: short.videoUrl }, { shouldPlay: true })
+                  .catch(() => {});
+              });
+            }}
+          >
+            <Feather name="refresh-cw" size={32} color="#fff" />
+            <ThemedText style={styles.errorText}>Tap to retry</ThemedText>
+          </Pressable>
         )}
       </Pressable>
 
@@ -209,6 +285,20 @@ export function ShortCard({
           </ThemedText>
         </Pressable>
 
+        {/* Comments */}
+        <Pressable
+          style={styles.actionButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setShowComments(true);
+          }}
+        >
+          <Feather name="message-circle" size={28} color="#fff" />
+          <ThemedText style={styles.actionText}>
+            {formatCount(commentCount)}
+          </ThemedText>
+        </Pressable>
+
         {/* Views */}
         <View style={styles.actionButton}>
           <Feather name="eye" size={28} color="#fff" />
@@ -233,6 +323,53 @@ export function ShortCard({
           </Pressable>
         )}
       </Animated.View>
+
+      {/* Product card overlay */}
+      {short.productId && short.productName && (
+        <Animated.View
+          entering={FadeIn.delay(400)}
+          style={[
+            styles.productOverlay,
+            Platform.OS === "web" && {
+              left: (SCREEN_WIDTH - CARD_WIDTH) / 2 + Spacing.md,
+              right: (SCREEN_WIDTH - CARD_WIDTH) / 2 + 80,
+            },
+          ]}
+        >
+          <Pressable
+            style={styles.productCard}
+            onPress={async () => {
+              if (loadingProduct) return;
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setLoadingProduct(true);
+              const product = await productsService.getProduct(
+                short.productId!,
+              );
+              setFullProduct(product);
+              setShowProductSheet(true);
+              setLoadingProduct(false);
+            }}
+          >
+            {short.productImage && (
+              <Image
+                source={{ uri: short.productImage }}
+                style={styles.productImage}
+              />
+            )}
+            <View style={styles.productInfo}>
+              <ThemedText style={styles.productName} numberOfLines={1}>
+                {short.productName}
+              </ThemedText>
+              {short.productPrice != null && (
+                <ThemedText style={styles.productPrice}>
+                  ${short.productPrice.toFixed(2)}
+                </ThemedText>
+              )}
+            </View>
+            <Feather name="shopping-bag" size={16} color="#fff" />
+          </Pressable>
+        </Animated.View>
+      )}
 
       {/* Bottom overlay: seller name + caption */}
       <Animated.View
@@ -266,6 +403,24 @@ export function ShortCard({
         }}
         onCancel={() => setShowDeleteConfirm(false)}
       />
+
+      <ShortCommentsSheet
+        visible={showComments}
+        shortId={short.id}
+        onClose={() => setShowComments(false)}
+        onCommentCountChange={(delta) =>
+          setCommentCount((prev) => Math.max(prev + delta, 0))
+        }
+      />
+
+      {short.productId && (
+        <ProductDetailSheet
+          product={fullProduct}
+          visible={showProductSheet}
+          onClose={() => setShowProductSheet(false)}
+          keepOpenOnAdd
+        />
+      )}
     </View>
   );
 }
@@ -355,5 +510,50 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
     lineHeight: 20,
+  },
+  errorOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+    gap: 12,
+  },
+  errorText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  productOverlay: {
+    position: "absolute",
+    bottom: 160,
+    left: Spacing.md,
+    right: 80,
+  },
+  productCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.6)",
+    borderRadius: 12,
+    padding: 8,
+    gap: 10,
+  },
+  productImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+  },
+  productInfo: {
+    flex: 1,
+  },
+  productName: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  productPrice: {
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 1,
   },
 });

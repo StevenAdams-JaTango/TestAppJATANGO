@@ -255,6 +255,7 @@ class CartService {
     selectedColor?: ColorVariant,
     selectedSize?: SizeVariant,
     selectedVariant?: ProductVariant,
+    showId?: string,
   ): Promise<{ available: boolean; maxQuantity: number; message?: string }> {
     // Get the stock quantity from variant or product
     let stockQuantity =
@@ -264,10 +265,12 @@ class CartService {
       product.quantityInStock ??
       0;
 
-    // Subtract active reservations from other users' show carts
-    const reserved = await this.fetchReservedForProduct(product.id);
-    if (reserved > 0) {
-      stockQuantity = Math.max(0, stockQuantity - reserved);
+    // Only check reservations for live show items (skip for normal/shorts purchases)
+    if (showId) {
+      const reserved = await this.fetchReservedForProduct(product.id);
+      if (reserved > 0) {
+        stockQuantity = Math.max(0, stockQuantity - reserved);
+      }
     }
 
     // Check existing cart quantity for this item
@@ -330,13 +333,14 @@ class CartService {
       return { success: false, message: "Please log in to add items to cart" };
     }
 
-    // Check stock availability
+    // Check stock availability (skip reservation lookup for non-show items)
     const stockCheck = await this.checkStock(
       product,
       quantity,
       selectedColor,
       selectedSize,
       selectedVariant,
+      showId,
     );
 
     if (!stockCheck.available) {
@@ -413,7 +417,8 @@ class CartService {
         );
       }
 
-      await this.loadFromDb();
+      // Reload cart in background — don't block the UI
+      this.loadFromDb();
       return { success: true };
     } catch (error) {
       console.error("[CartService] Error adding to cart:", error);

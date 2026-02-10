@@ -204,14 +204,29 @@ export interface Short {
   duration: number;
   viewCount: number;
   likeCount: number;
+  commentCount: number;
   isLiked?: boolean;
   createdAt: string;
+  productId?: string | null;
+  productName?: string | null;
+  productImage?: string | null;
+  productPrice?: number | null;
 }
 
 export interface ShortLike {
   id: string;
   shortId: string;
   userId: string;
+  createdAt: string;
+}
+
+export interface ShortComment {
+  id: string;
+  shortId: string;
+  userId: string;
+  userName: string;
+  userAvatar: string | null;
+  text: string;
   createdAt: string;
 }
 

@@ -1,12 +1,16 @@
 import { supabase } from "@/lib/supabase";
-import { Short } from "@/types";
+import { Short, ShortComment } from "@/types";
 
 interface CreateShortInput {
   videoUrl: string;
   thumbnailUrl?: string;
   caption?: string;
   duration?: number;
+  productId?: string;
 }
+
+const SHORTS_SELECT =
+  "*, profiles!shorts_seller_id_fkey(name, avatar_url), products(id, name, image, price)";
 
 function mapShort(row: any, likedShortIds?: Set<string>): Short {
   return {
@@ -20,8 +24,13 @@ function mapShort(row: any, likedShortIds?: Set<string>): Short {
     duration: row.duration || 0,
     viewCount: row.view_count || 0,
     likeCount: row.like_count || 0,
+    commentCount: row.comment_count || 0,
     isLiked: likedShortIds ? likedShortIds.has(row.id) : false,
     createdAt: row.created_at,
+    productId: row.product_id || null,
+    productName: row.products?.name || null,
+    productImage: row.products?.image || null,
+    productPrice: row.products?.price || null,
   };
 }
 
@@ -38,7 +47,7 @@ async function fetchFeed(
 
   const { data, error } = await supabase
     .from("shorts")
-    .select("*, profiles!shorts_seller_id_fkey(name, avatar_url)")
+    .select(SHORTS_SELECT)
     .order("created_at", { ascending: false })
     .range(from, to);
 
@@ -63,7 +72,7 @@ async function fetchByStore(
 ): Promise<Short[]> {
   const { data, error } = await supabase
     .from("shorts")
-    .select("*, profiles!shorts_seller_id_fkey(name, avatar_url)")
+    .select(SHORTS_SELECT)
     .eq("seller_id", sellerId)
     .order("created_at", { ascending: false });
 
@@ -99,8 +108,9 @@ async function createShort(input: CreateShortInput): Promise<Short | null> {
       thumbnail_url: input.thumbnailUrl || null,
       caption: input.caption || "",
       duration: input.duration || 0,
+      product_id: input.productId || null,
     })
-    .select("*, profiles!shorts_seller_id_fkey(name, avatar_url)")
+    .select(SHORTS_SELECT)
     .single();
 
   if (error) {
@@ -230,6 +240,90 @@ async function getProgress(userId: string): Promise<string | null> {
   return data.last_short_id;
 }
 
+/**
+ * Fetch comments for a short
+ */
+async function fetchComments(shortId: string): Promise<ShortComment[]> {
+  const { data, error } = await supabase
+    .from("short_comments")
+    .select("*, profiles!short_comments_user_id_fkey(name, avatar_url)")
+    .eq("short_id", shortId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("[Shorts] fetchComments error:", error);
+    return [];
+  }
+
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    shortId: row.short_id,
+    userId: row.user_id,
+    userName: row.profiles?.name || "Unknown",
+    userAvatar: row.profiles?.avatar_url || null,
+    text: row.text,
+    createdAt: row.created_at,
+  }));
+}
+
+/**
+ * Post a comment on a short
+ */
+async function postComment(
+  shortId: string,
+  text: string,
+): Promise<ShortComment | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from("short_comments")
+    .insert({ short_id: shortId, user_id: user.id, text })
+    .select("*, profiles!short_comments_user_id_fkey(name, avatar_url)")
+    .single();
+
+  if (error) {
+    console.error("[Shorts] postComment error:", error);
+    return null;
+  }
+
+  // Increment comment count
+  await supabase.rpc("increment_short_comments", { short_id_input: shortId });
+
+  return {
+    id: data.id,
+    shortId: data.short_id,
+    userId: data.user_id,
+    userName: data.profiles?.name || "Unknown",
+    userAvatar: data.profiles?.avatar_url || null,
+    text: data.text,
+    createdAt: data.created_at,
+  };
+}
+
+/**
+ * Delete a comment
+ */
+async function deleteComment(
+  commentId: string,
+  shortId: string,
+): Promise<boolean> {
+  const { error } = await supabase
+    .from("short_comments")
+    .delete()
+    .eq("id", commentId);
+
+  if (error) {
+    console.error("[Shorts] deleteComment error:", error);
+    return false;
+  }
+
+  await supabase.rpc("decrement_short_comments", { short_id_input: shortId });
+  return true;
+}
+
 export const shortsService = {
   fetchFeed,
   fetchByStore,
@@ -240,4 +334,7 @@ export const shortsService = {
   incrementViewCount,
   saveProgress,
   getProgress,
+  fetchComments,
+  postComment,
+  deleteComment,
 };

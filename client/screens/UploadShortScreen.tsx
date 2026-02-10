@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -10,6 +10,7 @@ import {
   Platform,
   KeyboardAvoidingView,
   ScrollView,
+  FlatList,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -25,6 +26,8 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { uploadVideo, uploadThumbnail } from "@/services/storage";
 import { shortsService } from "@/services/shorts";
+import { productsService } from "@/services/products";
+import { Product } from "@/types";
 import { Spacing, BorderRadius } from "@/constants/theme";
 
 const MAX_DURATION = 60;
@@ -80,6 +83,19 @@ export default function UploadShortScreen() {
   const [caption, setCaption] = useState("");
   const [duration, setDuration] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+
+  useEffect(() => {
+    const loadProducts = async () => {
+      setLoadingProducts(true);
+      const data = await productsService.listProducts();
+      setProducts(data);
+      setLoadingProducts(false);
+    };
+    loadProducts();
+  }, []);
 
   const pickVideo = useCallback(async () => {
     try {
@@ -192,6 +208,7 @@ export default function UploadShortScreen() {
         thumbnailUrl,
         caption: caption.trim(),
         duration,
+        productId: selectedProduct?.id,
       });
 
       if (!short) {
@@ -222,7 +239,15 @@ export default function UploadShortScreen() {
     } finally {
       setUploading(false);
     }
-  }, [videoUri, thumbnailUri, caption, duration, user?.id, navigation]);
+  }, [
+    videoUri,
+    thumbnailUri,
+    caption,
+    duration,
+    selectedProduct?.id,
+    user?.id,
+    navigation,
+  ]);
 
   const handleClose = useCallback(() => {
     if (videoUri && !uploading) {
@@ -382,6 +407,113 @@ export default function UploadShortScreen() {
         <ThemedText style={[styles.charCount, { color: theme.textSecondary }]}>
           {caption.length}/200
         </ThemedText>
+
+        {/* Product attachment (optional) */}
+        <ThemedText
+          style={[styles.sectionLabel, { color: theme.textSecondary }]}
+        >
+          Attach Product (optional)
+        </ThemedText>
+        {selectedProduct ? (
+          <View
+            style={[
+              styles.selectedProductCard,
+              {
+                backgroundColor: theme.backgroundSecondary,
+                borderColor: theme.border,
+              },
+            ]}
+          >
+            {selectedProduct.image ? (
+              <Image
+                source={{ uri: selectedProduct.image }}
+                style={styles.selectedProductImage}
+              />
+            ) : null}
+            <View style={styles.selectedProductInfo}>
+              <ThemedText
+                style={[styles.selectedProductName, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {selectedProduct.name}
+              </ThemedText>
+              <ThemedText
+                style={[
+                  styles.selectedProductPrice,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                ${selectedProduct.price.toFixed(2)}
+              </ThemedText>
+            </View>
+            <Pressable onPress={() => setSelectedProduct(null)} hitSlop={8}>
+              <Feather name="x-circle" size={20} color={theme.textSecondary} />
+            </Pressable>
+          </View>
+        ) : loadingProducts ? (
+          <ActivityIndicator
+            size="small"
+            color={theme.primary}
+            style={{ paddingVertical: Spacing.md }}
+          />
+        ) : products.length > 0 ? (
+          <FlatList
+            data={products}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.productList}
+            renderItem={({ item }) => (
+              <Pressable
+                style={[
+                  styles.productPickerCard,
+                  {
+                    backgroundColor: theme.backgroundSecondary,
+                    borderColor: theme.border,
+                  },
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSelectedProduct(item);
+                }}
+              >
+                {item.image ? (
+                  <Image
+                    source={{ uri: item.image }}
+                    style={styles.productPickerImage}
+                  />
+                ) : (
+                  <View
+                    style={[
+                      styles.productPickerImage,
+                      { backgroundColor: theme.border },
+                    ]}
+                  />
+                )}
+                <ThemedText
+                  style={[styles.productPickerName, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {item.name}
+                </ThemedText>
+                <ThemedText
+                  style={[
+                    styles.productPickerPrice,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  ${item.price.toFixed(2)}
+                </ThemedText>
+              </Pressable>
+            )}
+          />
+        ) : (
+          <ThemedText
+            style={[styles.noProductsText, { color: theme.textSecondary }]}
+          >
+            No products to attach
+          </ThemedText>
+        )}
       </ScrollView>
 
       {/* Upload button */}
@@ -576,5 +708,58 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: "center",
     lineHeight: 22,
+  },
+  selectedProductCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    padding: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  selectedProductImage: {
+    width: 48,
+    height: 48,
+    borderRadius: BorderRadius.xs,
+  },
+  selectedProductInfo: {
+    flex: 1,
+  },
+  selectedProductName: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  selectedProductPrice: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  productList: {
+    gap: Spacing.sm,
+  },
+  productPickerCard: {
+    width: 100,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  productPickerImage: {
+    width: 100,
+    height: 100,
+  },
+  productPickerName: {
+    fontSize: 12,
+    fontWeight: "600",
+    paddingHorizontal: 6,
+    paddingTop: 6,
+  },
+  productPickerPrice: {
+    fontSize: 11,
+    paddingHorizontal: 6,
+    paddingBottom: 6,
+    marginTop: 2,
+  },
+  noProductsText: {
+    fontSize: 13,
+    paddingVertical: Spacing.sm,
   },
 });

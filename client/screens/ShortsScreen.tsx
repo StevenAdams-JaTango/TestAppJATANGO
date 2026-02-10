@@ -14,7 +14,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 
 import { ShortCard } from "@/components/ShortCard";
+import { CartBottomSheet } from "@/components/CartBottomSheet";
+import { CheckoutBottomSheet } from "@/components/CheckoutBottomSheet";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCart } from "@/contexts/CartContext";
 import { shortsService } from "@/services/shorts";
 import { supabase } from "@/lib/supabase";
 import { Short } from "@/types";
@@ -22,8 +25,12 @@ import { Short } from "@/types";
 export default function ShortsScreen() {
   const { height: SCREEN_HEIGHT } = useWindowDimensions();
   const { user } = useAuth();
+  const { cart, totalItems } = useCart();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const [showCartSheet, setShowCartSheet] = useState(false);
+  const [showCheckoutSheet, setShowCheckoutSheet] = useState(false);
+  const [checkoutSellerId, setCheckoutSellerId] = useState<string | null>(null);
   const [shorts, setShorts] = useState<Short[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -113,6 +120,7 @@ export default function ShortsScreen() {
             id: string;
             like_count: number;
             view_count: number;
+            comment_count: number;
           };
           setShorts((prev) =>
             prev.map((s) =>
@@ -121,6 +129,7 @@ export default function ShortsScreen() {
                     ...s,
                     likeCount: updated.like_count,
                     viewCount: updated.view_count,
+                    commentCount: updated.comment_count,
                   }
                 : s,
             ),
@@ -135,7 +144,9 @@ export default function ShortsScreen() {
           setShorts((prev) => prev.filter((s) => s.id !== deleted.id));
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("[ShortsScreen] Realtime status:", status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
@@ -286,6 +297,50 @@ export default function ShortsScreen() {
           }, 200);
         }}
       />
+
+      {/* Floating cart FAB */}
+      {totalItems > 0 && (
+        <Pressable
+          style={[styles.cartFab, { bottom: insets.bottom + 24 }]}
+          onPress={() => setShowCartSheet(true)}
+        >
+          <Feather name="shopping-cart" size={22} color="#fff" />
+          <View style={styles.cartBadge}>
+            <Text style={styles.cartBadgeText}>{totalItems}</Text>
+          </View>
+        </Pressable>
+      )}
+
+      <CartBottomSheet
+        visible={showCartSheet}
+        onClose={() => setShowCartSheet(false)}
+        onCheckout={() => {
+          const firstStore = cart.stores[0];
+          if (firstStore) {
+            setShowCartSheet(false);
+            setCheckoutSellerId(firstStore.sellerId);
+            setShowCheckoutSheet(true);
+          }
+        }}
+        onStoreCheckout={(sellerId) => {
+          setShowCartSheet(false);
+          setCheckoutSellerId(sellerId);
+          setShowCheckoutSheet(true);
+        }}
+      />
+
+      <CheckoutBottomSheet
+        visible={showCheckoutSheet}
+        sellerId={checkoutSellerId}
+        onClose={() => {
+          setShowCheckoutSheet(false);
+          setCheckoutSellerId(null);
+        }}
+        onSuccess={() => {
+          setShowCheckoutSheet(false);
+          setCheckoutSellerId(null);
+        }}
+      />
     </View>
   );
 }
@@ -361,5 +416,35 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.4)",
     alignItems: "center",
     justifyContent: "center",
+  },
+  cartFab: {
+    position: "absolute",
+    right: 20,
+    zIndex: 100,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+  },
+  cartBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#ef4444",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+  cartBadgeText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "700",
   },
 });

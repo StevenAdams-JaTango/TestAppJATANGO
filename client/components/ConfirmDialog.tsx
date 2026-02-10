@@ -57,18 +57,20 @@ export function ConfirmDialog({
               </ThemedText>
 
               <View style={styles.actions}>
-                <Pressable
-                  style={[
-                    styles.button,
-                    styles.cancelButton,
-                    { backgroundColor: theme.backgroundSecondary },
-                  ]}
-                  onPress={onCancel}
-                >
-                  <ThemedText style={styles.buttonText}>
-                    {cancelText}
-                  </ThemedText>
-                </Pressable>
+                {cancelText ? (
+                  <Pressable
+                    style={[
+                      styles.button,
+                      styles.cancelButton,
+                      { backgroundColor: theme.backgroundSecondary },
+                    ]}
+                    onPress={onCancel}
+                  >
+                    <ThemedText style={styles.buttonText}>
+                      {cancelText}
+                    </ThemedText>
+                  </Pressable>
+                ) : null}
                 <Pressable
                   style={[
                     styles.button,

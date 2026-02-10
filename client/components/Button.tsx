@@ -9,7 +9,7 @@ import Animated, {
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { BorderRadius, Spacing } from "@/constants/theme";
+import { Spacing } from "@/constants/theme";
 
 interface ButtonProps {
   onPress?: () => void;
@@ -82,7 +82,7 @@ export function Button({
 const styles = StyleSheet.create({
   button: {
     height: Spacing.buttonHeight,
-    borderRadius: BorderRadius.full,
+    borderRadius: Spacing.buttonHeight / 2,
     alignItems: "center",
     justifyContent: "center",
   },

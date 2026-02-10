@@ -23,6 +23,12 @@ export const linking: LinkingOptions<any> = {
               Explore: "",
             },
           },
+          ShortsTab: {
+            path: "shorts",
+            screens: {
+              Shorts: "",
+            },
+          },
           ShowsTab: {
             path: "shows",
             screens: {
@@ -50,6 +56,8 @@ export const linking: LinkingOptions<any> = {
         path: "ShowSummary",
         parse: { showId: (id: string) => id },
       },
+      UploadShort: "upload-short",
+      StoreShortsViewer: "store-shorts/:sellerId",
     },
   },
 };

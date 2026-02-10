@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View,
   Modal,
@@ -11,7 +11,7 @@ import {
   Platform,
   Alert,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
@@ -28,6 +28,7 @@ import { BorderRadius, Spacing } from "@/constants/theme";
 import { Product, ColorVariant, SizeVariant } from "@/types";
 import { HomeStackParamList } from "@/navigation/HomeStackNavigator";
 import { ExploreStackParamList } from "@/navigation/ExploreStackNavigator";
+import { savedProductsService } from "@/services/savedProducts";
 
 function useSafeBottomTabBarHeight(): number {
   try {
@@ -75,7 +76,25 @@ export function ProductDetailSheet({
   const [selectedSize, setSelectedSize] = useState<SizeVariant | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
   const imageScrollRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    if (!product) return;
+    savedProductsService.isSaved(product.id).then(setIsSaved);
+  }, [product]);
+
+  const handleToggleSave = useCallback(async () => {
+    if (!product) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (isSaved) {
+      const ok = await savedProductsService.unsave(product.id);
+      if (ok) setIsSaved(false);
+    } else {
+      const ok = await savedProductsService.save(product.id);
+      if (ok) setIsSaved(true);
+    }
+  }, [product, isSaved]);
 
   if (!product) return null;
 
@@ -889,6 +908,19 @@ export function ProductDetailSheet({
                 },
               ]}
             >
+              <Pressable
+                style={[
+                  styles.cartButton,
+                  { backgroundColor: theme.backgroundSecondary },
+                ]}
+                onPress={handleToggleSave}
+              >
+                <Ionicons
+                  name={isSaved ? "heart" : "heart-outline"}
+                  size={24}
+                  color={isSaved ? "#ef4444" : theme.textSecondary}
+                />
+              </Pressable>
               <Pressable
                 style={[
                   styles.cartButton,

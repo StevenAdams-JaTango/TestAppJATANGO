@@ -18,6 +18,9 @@ import ShippingAddressesScreen from "@/screens/ShippingAddressesScreen";
 import AddAddressScreen from "@/screens/AddAddressScreen";
 import OrdersScreen from "@/screens/OrdersScreen";
 import OrderDetailScreen from "@/screens/OrderDetailScreen";
+import UploadShortScreen from "@/screens/UploadShortScreen";
+import StoreShortsScreen from "@/screens/StoreShortsScreen";
+import SavedProductsScreen from "@/screens/SavedProductsScreen";
 import AuthScreen from "@/screens/AuthScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
@@ -41,6 +44,9 @@ export type RootStackParamList = {
   AddAddress: { addressId?: string } | undefined;
   Orders: undefined;
   OrderDetail: { orderId: string };
+  UploadShort: undefined;
+  StoreShortsViewer: { sellerId: string; initialIndex?: number };
+  SavedProducts: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -193,6 +199,31 @@ export default function RootStackNavigator() {
             component={OrderDetailScreen}
             options={{
               headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="UploadShort"
+            component={UploadShortScreen}
+            options={{
+              headerShown: false,
+              presentation: "modal",
+            }}
+          />
+          <Stack.Screen
+            name="StoreShortsViewer"
+            component={StoreShortsScreen}
+            options={{
+              headerShown: false,
+              animation: "fade",
+            }}
+          />
+          <Stack.Screen
+            name="SavedProducts"
+            component={SavedProductsScreen}
+            options={{
+              headerTitle: "Saved Products",
+              headerBackVisible: true,
+              headerBackTitle: "Back",
             }}
           />
         </>

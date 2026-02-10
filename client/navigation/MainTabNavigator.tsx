@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import HomeStackNavigator from "@/navigation/HomeStackNavigator";
 import ExploreStackNavigator from "@/navigation/ExploreStackNavigator";
+import ShortsStackNavigator from "@/navigation/ShortsStackNavigator";
 import ShowsStackNavigator from "@/navigation/ShowsStackNavigator";
 import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
 import { useTheme } from "@/hooks/useTheme";
@@ -14,6 +15,7 @@ import { useTheme } from "@/hooks/useTheme";
 export type MainTabParamList = {
   HomeTab: undefined;
   ExploreTab: undefined;
+  ShortsTab: undefined;
   ShowsTab: undefined;
   ProfileTab: undefined;
 };
@@ -82,6 +84,17 @@ export default function MainTabNavigator() {
           title: "Explore",
           tabBarIcon: ({ color, size }) => (
             <Feather name="search" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="ShortsTab"
+        component={ShortsStackNavigator}
+        options={{
+          title: "Shorts",
+          tabBarStyle: { display: "none" },
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="play-circle" size={size} color={color} />
           ),
         }}
       />

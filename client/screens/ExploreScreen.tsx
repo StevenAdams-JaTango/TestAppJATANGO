@@ -17,8 +17,9 @@ import { EmptyState } from "@/components/EmptyState";
 import { ProductDetailSheet } from "@/components/ProductDetailSheet";
 import { ProductCard } from "@/components/ProductCard";
 import { CartIcon } from "@/components/CartIcon";
+import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius } from "@/constants/theme";
+import { Spacing } from "@/constants/theme";
 import { productsService } from "@/services/products";
 import { Product } from "@/types";
 
@@ -94,12 +95,7 @@ export default function ExploreScreen() {
   const renderEmpty = () => {
     if (loading) {
       return (
-        <View
-          style={[
-            styles.searchContainer,
-            { paddingTop: insets.top + Spacing.md },
-          ]}
-        >
+        <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.primary} />
         </View>
       );
@@ -117,58 +113,82 @@ export default function ExploreScreen() {
     );
   };
 
+  const ListHeader = () => (
+    <View style={styles.listHeader}>
+      <View style={styles.listHeaderRow}>
+        <ThemedText style={[styles.sectionTitle, { color: theme.text }]}>
+          {searchQuery ? "Results" : "All Products"}
+        </ThemedText>
+        <ThemedText
+          style={[styles.countBadgeText, { color: theme.textSecondary }]}
+        >
+          {filteredProducts.length} items
+        </ThemedText>
+      </View>
+    </View>
+  );
+
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+      {/* Search header */}
       <View
         style={[
-          styles.searchContainer,
+          styles.searchHeader,
           {
-            paddingTop: Math.max(insets.top, Spacing.lg) + Spacing.md,
+            paddingTop: insets.top + Spacing.sm,
             backgroundColor: theme.backgroundRoot,
           },
         ]}
       >
-        <View
-          style={[
-            styles.searchBar,
-            {
-              backgroundColor: theme.backgroundSecondary,
-              borderColor: theme.border,
-            },
-          ]}
-        >
-          <Feather name="search" size={20} color={theme.secondary} />
-          <TextInput
-            style={[styles.searchInput, { color: theme.text }]}
-            placeholder="Search products..."
-            placeholderTextColor={theme.textSecondary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            testID="search-input"
-          />
-          {searchQuery.length > 0 ? (
-            <Pressable onPress={() => setSearchQuery("")}>
-              <Feather name="x" size={20} color={theme.textSecondary} />
-            </Pressable>
-          ) : null}
+        <View style={styles.headerContent}>
+          <View
+            style={[
+              styles.searchBar,
+              {
+                backgroundColor: theme.backgroundSecondary,
+                borderColor: theme.border,
+              },
+            ]}
+          >
+            <Feather name="search" size={18} color={theme.textSecondary} />
+            <TextInput
+              style={[styles.searchInput, { color: theme.text }]}
+              placeholder="Search products..."
+              placeholderTextColor={theme.textSecondary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              testID="search-input"
+            />
+            {searchQuery.length > 0 ? (
+              <Pressable onPress={() => setSearchQuery("")}>
+                <Feather
+                  name="x-circle"
+                  size={18}
+                  color={theme.textSecondary}
+                />
+              </Pressable>
+            ) : null}
+          </View>
+          <CartIcon />
         </View>
-        <CartIcon />
       </View>
+
       <FlatList
         style={styles.list}
         contentContainerStyle={[
           styles.content,
-          {
-            paddingBottom: tabBarHeight + Spacing.xl,
-          },
+          { paddingBottom: tabBarHeight + Spacing.xl },
           filteredProducts.length === 0 && styles.emptyContent,
         ]}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
         data={filteredProducts}
         keyExtractor={(item) => item.id}
-        numColumns={2}
+        numColumns={4}
         columnWrapperStyle={styles.row}
         renderItem={renderItem}
+        ListHeaderComponent={
+          filteredProducts.length > 0 ? <ListHeader /> : null
+        }
         ListEmptyComponent={renderEmpty}
         refreshControl={
           <RefreshControl
@@ -196,12 +216,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  searchContainer: {
+
+  // Search header
+  searchHeader: {
+    paddingBottom: Spacing.sm,
+  },
+  headerContent: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.sm,
-    paddingTop: Spacing.sm,
+    paddingHorizontal: Spacing.md,
     gap: Spacing.sm,
   },
   searchBar: {
@@ -209,29 +232,49 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: Spacing.md,
-    height: 44,
-    borderRadius: BorderRadius.full,
+    height: 42,
+    borderRadius: 21,
     borderWidth: 1,
     gap: Spacing.sm,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     paddingVertical: 0,
   },
+
+  // List header
+  listHeader: {
+    paddingBottom: Spacing.sm,
+  },
+  listHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  countBadgeText: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+
+  // Grid
   list: {
     flex: 1,
   },
   content: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
+    paddingHorizontal: Spacing.xs,
+    paddingTop: Spacing.sm,
   },
   emptyContent: {
     flex: 1,
   },
   row: {
-    gap: Spacing.sm,
-    marginBottom: Spacing.sm,
+    gap: 4,
+    marginBottom: 4,
   },
   loadingContainer: {
     flex: 1,

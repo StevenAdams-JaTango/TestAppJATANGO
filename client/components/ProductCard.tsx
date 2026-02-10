@@ -364,13 +364,14 @@ const styles = StyleSheet.create({
   // Grid variant styles
   gridWrapper: {
     flex: 1,
-    maxWidth: "50%",
+    maxWidth: "25%",
   },
   gridCard: {
+    flex: 1,
     borderRadius: BorderRadius.md,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.04)",
+    borderColor: "rgba(0,0,0,0.06)",
     ...Shadows.sm,
   },
   gridCardDisabled: {
@@ -382,7 +383,7 @@ const styles = StyleSheet.create({
   },
   gridImage: {
     width: "100%",
-    aspectRatio: 1,
+    aspectRatio: 4 / 5,
   },
   imageGreyed: {
     opacity: 0.5,
@@ -405,16 +406,19 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
   gridInfo: {
-    padding: Spacing.sm,
-    gap: 2,
+    flex: 1,
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    gap: 1,
   },
   gridName: {
-    fontSize: 13,
+    fontSize: 10,
     fontWeight: "600",
+    letterSpacing: 0.1,
   },
   gridPrice: {
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 11,
+    fontWeight: "800",
   },
   lowStockBadge: {
     position: "absolute",
@@ -442,24 +446,24 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   miniColorSwatch: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     borderWidth: 1,
     borderColor: "rgba(0,0,0,0.1)",
   },
   variantCount: {
-    fontSize: 10,
+    fontSize: 8,
     marginLeft: 2,
   },
   sizeCount: {
-    fontSize: 10,
+    fontSize: 8,
   },
   sellerRow: {
     marginTop: 4,
   },
   sellerName: {
-    fontSize: 11,
+    fontSize: 9,
   },
   gridStockRow: {
     flexDirection: "row",
@@ -468,12 +472,12 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   gridStockDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
   },
   gridStockText: {
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: "600",
     flexShrink: 1,
   },

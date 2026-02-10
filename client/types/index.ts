@@ -192,3 +192,31 @@ export interface ChatMessage {
   message: string;
   timestamp: number;
 }
+
+export interface Short {
+  id: string;
+  sellerId: string;
+  sellerName: string;
+  sellerAvatar: string | null;
+  videoUrl: string;
+  thumbnailUrl: string | null;
+  caption: string;
+  duration: number;
+  viewCount: number;
+  likeCount: number;
+  isLiked?: boolean;
+  createdAt: string;
+}
+
+export interface ShortLike {
+  id: string;
+  shortId: string;
+  userId: string;
+  createdAt: string;
+}
+
+export interface ShortProgress {
+  userId: string;
+  lastShortId: string | null;
+  updatedAt: string;
+}

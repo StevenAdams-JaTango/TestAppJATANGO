@@ -13,7 +13,10 @@ import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useNavigation } from "@react-navigation/native";
+import {
+  useNavigation,
+  CompositeNavigationProp,
+} from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -30,8 +33,12 @@ import { supabase } from "@/lib/supabase";
 import { uploadImage } from "@/services/storage";
 import * as ImagePicker from "expo-image-picker";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { ProfileStackParamList } from "@/navigation/ProfileStackNavigator";
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type NavigationProp = CompositeNavigationProp<
+  NativeStackNavigationProp<ProfileStackParamList>,
+  NativeStackNavigationProp<RootStackParamList>
+>;
 
 interface UserProfile {
   id: string;
@@ -51,6 +58,10 @@ export default function ProfileScreen() {
   const { totalItems } = useCart();
   const navigation = useNavigation<NavigationProp>();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [productCount, setProductCount] = useState(0);
+  const [shortsCount, setShortsCount] = useState(0);
+  const [orderCount, setOrderCount] = useState(0);
+  const [savedCount, setSavedCount] = useState(0);
   const [, setLoading] = useState(true);
 
   // Edit profile state
@@ -79,6 +90,34 @@ export default function ProfileScreen() {
         followers: 0, // TODO: Add followers count
         following: 0, // TODO: Add following count
       });
+
+      // Check if user has products
+      const { count } = await supabase
+        .from("products")
+        .select("id", { count: "exact", head: true })
+        .eq("seller_id", authUser.id);
+      setProductCount(count ?? 0);
+
+      // Check if user has shorts
+      const { count: sc } = await supabase
+        .from("shorts")
+        .select("id", { count: "exact", head: true })
+        .eq("seller_id", authUser.id);
+      setShortsCount(sc ?? 0);
+
+      // Check order count
+      const { count: oc } = await supabase
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", authUser.id);
+      setOrderCount(oc ?? 0);
+
+      // Check saved products count
+      const { count: spc } = await supabase
+        .from("saved_products")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", authUser.id);
+      setSavedCount(spc ?? 0);
     } catch (error) {
       console.error("Error loading profile:", error);
       // Fallback to basic user info
@@ -329,10 +368,24 @@ export default function ProfileScreen() {
         </ThemedText>
         <Card elevation={1} style={styles.menuCard}>
           <MenuItem
+            icon="home"
+            label="My Store"
+            onPress={() =>
+              navigation.navigate("StoreProfile", {
+                storeId: profile.id,
+              })
+            }
+            theme={theme}
+          />
+          <View
+            style={[styles.menuDivider, { backgroundColor: theme.border }]}
+          />
+          <MenuItem
             icon="shopping-bag"
             label="My Orders"
             onPress={() => navigation.navigate("Orders")}
             theme={theme}
+            badge={orderCount}
           />
           <View
             style={[styles.menuDivider, { backgroundColor: theme.border }]}
@@ -352,11 +405,38 @@ export default function ProfileScreen() {
             label="My Products"
             onPress={() => navigation.navigate("Products")}
             theme={theme}
+            badge={productCount}
           />
+          {profile.isSeller && (
+            <>
+              <View
+                style={[styles.menuDivider, { backgroundColor: theme.border }]}
+              />
+              <MenuItem
+                icon="play-circle"
+                label="My Shorts"
+                onPress={() =>
+                  shortsCount > 0
+                    ? navigation.navigate("StoreShortsViewer", {
+                        sellerId: profile.id,
+                      })
+                    : (navigation as any).navigate("UploadShort")
+                }
+                theme={theme}
+                badge={shortsCount}
+              />
+            </>
+          )}
           <View
             style={[styles.menuDivider, { backgroundColor: theme.border }]}
           />
-          <MenuItem icon="heart" label="Saved Products" theme={theme} />
+          <MenuItem
+            icon="heart"
+            label="Saved Products"
+            onPress={() => navigation.navigate("SavedProducts")}
+            theme={theme}
+            badge={savedCount}
+          />
           <View
             style={[styles.menuDivider, { backgroundColor: theme.border }]}
           />

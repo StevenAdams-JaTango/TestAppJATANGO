@@ -1,7 +1,6 @@
 import React from "react";
-import { ActivityIndicator, Pressable, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { Feather } from "@expo/vector-icons";
 
 import MainTabNavigator from "@/navigation/MainTabNavigator";
 import LiveStreamScreen from "@/screens/LiveStreamScreen";
@@ -103,19 +102,11 @@ export default function RootStackNavigator() {
           <Stack.Screen
             name="Settings"
             component={SettingsScreen}
-            options={({ navigation }) => ({
+            options={{
               headerTitle: "Settings",
               headerBackVisible: true,
               headerBackTitle: "Back",
-              headerLeft: () => (
-                <Pressable
-                  onPress={() => navigation.goBack()}
-                  style={{ padding: 8 }}
-                >
-                  <Feather name="arrow-left" size={22} color={theme.text} />
-                </Pressable>
-              ),
-            })}
+            }}
           />
           <Stack.Screen
             name="EndedShow"

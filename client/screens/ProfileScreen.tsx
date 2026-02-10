@@ -365,6 +365,15 @@ export default function ProfileScreen() {
             style={[styles.menuDivider, { backgroundColor: theme.border }]}
           />
           <MenuItem
+            icon="settings"
+            label="Settings"
+            onPress={() => navigation.navigate("Settings")}
+            theme={theme}
+          />
+          <View
+            style={[styles.menuDivider, { backgroundColor: theme.border }]}
+          />
+          <MenuItem
             icon="log-out"
             label="Sign Out"
             onPress={handleSignOut}

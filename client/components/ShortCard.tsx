@@ -3,10 +3,10 @@ import {
   View,
   StyleSheet,
   Pressable,
-  Dimensions,
   Image,
   ActivityIndicator,
   Platform,
+  useWindowDimensions,
 } from "react-native";
 import { Video, ResizeMode, AVPlaybackStatus } from "expo-av";
 import { Feather, Ionicons } from "@expo/vector-icons";
@@ -21,12 +21,7 @@ import { Short } from "@/types";
 import { Spacing } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const WEB_MAX_WIDTH = 420;
-// eslint-disable-next-line prettier/prettier
-const CARD_WIDTH = Platform.OS === "web"
-  ? Math.min(SCREEN_WIDTH, WEB_MAX_WIDTH)
-  : SCREEN_WIDTH;
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -47,6 +42,11 @@ export function ShortCard({
   onUnlike,
   onDelete,
 }: ShortCardProps) {
+  const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
+  const CARD_WIDTH =
+    Platform.OS === "web"
+      ? Math.min(SCREEN_WIDTH, WEB_MAX_WIDTH)
+      : SCREEN_WIDTH;
   const videoRef = useRef<Video>(null);
   const navigation = useNavigation<NavigationProp>();
   const [isPlaying, setIsPlaying] = useState(false);
@@ -88,6 +88,15 @@ export function ShortCard({
       videoRef.current.playAsync();
     }
   }, [isPlaying]);
+
+  const handleReadyForDisplay = useCallback((event: any) => {
+    if (Platform.OS === "web" && event?.srcElement) {
+      event.srcElement.style.position = "initial";
+      event.srcElement.style.width = "100%";
+      event.srcElement.style.height = "100%";
+      event.srcElement.style.objectFit = "contain";
+    }
+  }, []);
 
   const handleToggleMute = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -131,8 +140,13 @@ export function ShortCard({
   };
 
   return (
-    <View style={styles.container}>
-      <Pressable style={styles.videoContainer} onPress={handleTogglePlay}>
+    <View
+      style={[styles.container, { width: SCREEN_WIDTH, height: SCREEN_HEIGHT }]}
+    >
+      <Pressable
+        style={[styles.videoContainer, { width: CARD_WIDTH }]}
+        onPress={handleTogglePlay}
+      >
         <Video
           ref={videoRef}
           source={{ uri: short.videoUrl }}
@@ -142,6 +156,7 @@ export function ShortCard({
           isMuted={isMuted}
           shouldPlay={isVisible}
           onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
+          onReadyForDisplay={handleReadyForDisplay}
           posterSource={
             short.thumbnailUrl ? { uri: short.thumbnailUrl } : undefined
           }
@@ -257,14 +272,11 @@ export function ShortCard({
 
 const styles = StyleSheet.create({
   container: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
     backgroundColor: "#000",
     alignItems: Platform.OS === "web" ? "center" : undefined,
   },
   videoContainer: {
     flex: 1,
-    width: CARD_WIDTH,
     alignSelf: "center",
   },
   video: {

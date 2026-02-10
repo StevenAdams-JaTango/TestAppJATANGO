@@ -4,10 +4,10 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  Dimensions,
   ActivityIndicator,
   ViewToken,
   Pressable,
+  useWindowDimensions,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,9 +19,8 @@ import { shortsService } from "@/services/shorts";
 import { supabase } from "@/lib/supabase";
 import { Short } from "@/types";
 
-const { height: SCREEN_HEIGHT } = Dimensions.get("window");
-
 export default function ShortsScreen() {
+  const { height: SCREEN_HEIGHT } = useWindowDimensions();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -218,7 +217,7 @@ export default function ShortsScreen() {
       offset: SCREEN_HEIGHT * index,
       index,
     }),
-    [],
+    [SCREEN_HEIGHT],
   );
 
   if (loading) {
@@ -348,7 +347,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   footerLoader: {
-    height: SCREEN_HEIGHT,
+    height: 200,
     justifyContent: "center",
     alignItems: "center",
   },

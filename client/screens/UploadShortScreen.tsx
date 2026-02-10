@@ -164,8 +164,15 @@ export default function UploadShortScreen() {
     setUploading(true);
 
     try {
-      // Upload video
-      const videoUrl = await uploadVideo(videoUri);
+      // Upload video with timeout to prevent hanging on web
+      const uploadPromise = uploadVideo(videoUri);
+      const timeoutPromise = new Promise<null>((_, reject) =>
+        setTimeout(
+          () => reject(new Error("Upload timed out. Check your connection.")),
+          120000,
+        ),
+      );
+      const videoUrl = await Promise.race([uploadPromise, timeoutPromise]);
       if (!videoUrl) {
         Alert.alert("Error", "Failed to upload video. Please try again.");
         setUploading(false);
@@ -195,7 +202,7 @@ export default function UploadShortScreen() {
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-      // Navigate immediately — don't rely on Alert callback (unreliable on web)
+      // Navigate to profile so user sees their new short
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
@@ -203,7 +210,7 @@ export default function UploadShortScreen() {
             {
               name: "Main",
               state: {
-                routes: [{ name: "ShortsTab" }],
+                routes: [{ name: "ProfileTab" }],
               },
             },
           ],
@@ -552,5 +559,22 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
+  },
+  webUnsupported: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  webUnsupportedTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    marginTop: Spacing.md,
+  },
+  webUnsupportedText: {
+    fontSize: 15,
+    textAlign: "center",
+    lineHeight: 22,
   },
 });

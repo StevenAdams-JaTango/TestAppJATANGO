@@ -117,8 +117,8 @@ export default function RootStackNavigator() {
             component={SettingsScreen}
             options={({ navigation: nav }) => ({
               headerTitle: "Settings",
-              headerBackVisible: true,
-              headerBackTitle: "Back",
+              headerBackVisible: false,
+              headerRight: () => null,
               headerLeft: () => (
                 <Pressable
                   onPress={() => nav.goBack()}

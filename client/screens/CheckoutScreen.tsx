@@ -28,9 +28,11 @@ import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { checkoutService } from "@/services/checkout";
 import { settingsService, SavedPaymentMethod } from "@/services/settings";
+import { shippingService } from "@/services/shipping";
+import { ShippingRateSelector } from "@/components/ShippingRateSelector";
 import { BorderRadius, Spacing } from "@/constants/theme";
 import { StoreCart, Cart, getStoreTotal } from "@/types/cart";
-import { ShippingAddress } from "@/types";
+import { ShippingAddress, ShippingRate } from "@/types";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -64,10 +66,19 @@ export default function CheckoutScreen() {
   );
   const [isLoadingData, setIsLoadingData] = useState(false);
 
+  // Shipping rate state
+  const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
+  const [selectedShippingRate, setSelectedShippingRate] =
+    useState<ShippingRate | null>(null);
+  const [isLoadingRates, setIsLoadingRates] = useState(false);
+  const [ratesError, setRatesError] = useState<string | null>(null);
+
   const storeTotal = store ? getStoreTotal(store) : 0;
   const salesTaxRate = 0.08;
   const salesTax = Math.round(storeTotal * salesTaxRate * 100) / 100;
-  const grandTotal = Math.round((storeTotal + salesTax) * 100) / 100;
+  const shippingCost = selectedShippingRate?.amount || 0;
+  const grandTotal =
+    Math.round((storeTotal + salesTax + shippingCost) * 100) / 100;
   const totalItems = store
     ? store.items.reduce((sum, item) => sum + item.quantity, 0)
     : 0;
@@ -123,6 +134,82 @@ export default function CheckoutScreen() {
       cancelled = true;
     };
   }, [user?.id, totalItems, isFocused]);
+
+  // Auto-fetch shipping rates when address is selected
+  useEffect(() => {
+    if (!selectedAddressId || !sellerId) return;
+
+    let cancelled = false;
+
+    const fetchRates = async () => {
+      setIsLoadingRates(true);
+      setRatesError(null);
+      setShippingRates([]);
+      setSelectedShippingRate(null);
+
+      try {
+        const storeAddr = await shippingService.getStoreAddress(sellerId);
+        if (!storeAddr) {
+          // Seller hasn't set up a store address — shipping is free / not available
+          if (!cancelled) setIsLoadingRates(false);
+          return;
+        }
+
+        const selectedAddr = addresses.find((a) => a.id === selectedAddressId);
+        if (!selectedAddr) {
+          if (!cancelled) setIsLoadingRates(false);
+          return;
+        }
+
+        const result = await shippingService.getRates(
+          {
+            name: "Store",
+            street1: storeAddr.addressLine1,
+            street2: storeAddr.addressLine2,
+            city: storeAddr.city,
+            state: storeAddr.state,
+            zip: storeAddr.zip,
+            country: storeAddr.country || "US",
+          },
+          {
+            name: selectedAddr.name,
+            street1: selectedAddr.addressLine1,
+            street2: selectedAddr.addressLine2,
+            city: selectedAddr.city,
+            state: selectedAddr.state,
+            zip: selectedAddr.zip,
+            country: selectedAddr.country || "US",
+          },
+          {
+            length: "6",
+            width: "4",
+            height: "4",
+            distanceUnit: "in",
+            weight: "1",
+            massUnit: "lb",
+          },
+        );
+
+        if (!cancelled) {
+          setShippingRates(result.rates);
+          if (result.rates.length > 0) {
+            setSelectedShippingRate(result.rates[0]);
+          }
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          setRatesError(err.message || "Failed to get shipping rates");
+        }
+      } finally {
+        if (!cancelled) setIsLoadingRates(false);
+      }
+    };
+
+    fetchRates();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAddressId, sellerId, addresses]);
 
   // Initialize Stripe PaymentSheet for native
   useEffect(() => {
@@ -219,6 +306,9 @@ export default function CheckoutScreen() {
               phone: selectedAddr.phone || undefined,
             }
           : undefined,
+        selectedShippingRate?.amount,
+        selectedShippingRate?.carrier,
+        selectedShippingRate?.serviceName,
       );
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -281,6 +371,9 @@ export default function CheckoutScreen() {
               phone: selectedAddr.phone || undefined,
             }
           : undefined,
+        selectedShippingRate?.amount,
+        selectedShippingRate?.carrier,
+        selectedShippingRate?.serviceName,
       );
 
       await clearStoreCart(sellerId);
@@ -613,6 +706,20 @@ export default function CheckoutScreen() {
           </Pressable>
         )}
 
+        {/* Shipping Rate Selection */}
+        {selectedAddressId && sellerId && (
+          <>
+            <ThemedText style={styles.sectionTitle}>Shipping Method</ThemedText>
+            <ShippingRateSelector
+              rates={shippingRates}
+              selectedRateId={selectedShippingRate?.rateId || null}
+              onSelect={setSelectedShippingRate}
+              isLoading={isLoadingRates}
+              error={ratesError}
+            />
+          </>
+        )}
+
         <ThemedText style={styles.sectionTitle}>Order Summary</ThemedText>
         {storeCart.stores.map(renderStoreSection)}
 
@@ -641,8 +748,26 @@ export default function CheckoutScreen() {
             >
               Shipping
             </ThemedText>
-            <ThemedText style={[styles.totalValue, { color: theme.success }]}>
-              Free
+            <ThemedText
+              style={[
+                styles.totalValue,
+                {
+                  color:
+                    shippingCost > 0
+                      ? theme.text
+                      : selectedShippingRate
+                        ? theme.success
+                        : theme.textSecondary,
+                },
+              ]}
+            >
+              {shippingCost > 0
+                ? `$${shippingCost.toFixed(2)}`
+                : selectedShippingRate
+                  ? "Free"
+                  : isLoadingRates
+                    ? "Calculating..."
+                    : "—"}
             </ThemedText>
           </View>
           <View style={styles.totalRow}>

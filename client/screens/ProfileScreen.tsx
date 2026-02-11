@@ -8,6 +8,7 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,6 +16,7 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import {
   useNavigation,
+  useFocusEffect,
   CompositeNavigationProp,
 } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -65,6 +67,7 @@ export default function ProfileScreen() {
   const [savedCount, setSavedCount] = useState(0);
   const [salesCount, setSalesCount] = useState(0);
   const [, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Edit profile state
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -144,11 +147,110 @@ export default function ProfileScreen() {
     }
   }, [authUser]);
 
+  useFocusEffect(
+    React.useCallback(() => {
+      if (authUser) {
+        loadProfile();
+      }
+    }, [authUser, loadProfile]),
+  );
+
+  // Real-time subscriptions for badge counts
   React.useEffect(() => {
-    if (authUser) {
-      loadProfile();
-    }
-  }, [authUser, loadProfile]);
+    if (!authUser) return;
+
+    // Channel for tables filtered by this user's ID
+    const channel = supabase
+      .channel("profile-badges")
+      // Orders where this user is the BUYER
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+          filter: `user_id=eq.${authUser.id}`,
+        },
+        async () => {
+          const { count: oc } = await supabase
+            .from("orders")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", authUser.id);
+          setOrderCount(oc ?? 0);
+        },
+      )
+      // Orders where this user is the SELLER (sales)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+          filter: `seller_id=eq.${authUser.id}`,
+        },
+        async () => {
+          try {
+            const sales = await shippingService.fetchSales(authUser.id);
+            setSalesCount(sales.length);
+          } catch {
+            // ignore
+          }
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "products",
+          filter: `seller_id=eq.${authUser.id}`,
+        },
+        async () => {
+          const { count } = await supabase
+            .from("products")
+            .select("id", { count: "exact", head: true })
+            .eq("seller_id", authUser.id);
+          setProductCount(count ?? 0);
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "saved_products",
+          filter: `user_id=eq.${authUser.id}`,
+        },
+        async () => {
+          const { count } = await supabase
+            .from("saved_products")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", authUser.id);
+          setSavedCount(count ?? 0);
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "shorts",
+          filter: `seller_id=eq.${authUser.id}`,
+        },
+        async () => {
+          const { count } = await supabase
+            .from("shorts")
+            .select("id", { count: "exact", head: true })
+            .eq("seller_id", authUser.id);
+          setShortsCount(count ?? 0);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [authUser]);
 
   if (!profile) {
     return null;
@@ -239,6 +341,18 @@ export default function ProfileScreen() {
         },
       ]}
       scrollIndicatorInsets={{ bottom: insets.bottom }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={async () => {
+            setRefreshing(true);
+            await loadProfile();
+            setRefreshing(false);
+          }}
+          tintColor={theme.primary}
+          colors={[theme.primary]}
+        />
+      }
     >
       <Animated.View
         entering={FadeInDown.delay(100).springify()}

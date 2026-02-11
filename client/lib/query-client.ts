@@ -10,6 +10,17 @@ import { Platform } from "react-native";
 export function getApiUrl(): string {
   const isDev = typeof __DEV__ !== "undefined" && __DEV__;
 
+  // Detect Android emulator (model contains "sdk" or "emulator")
+  const isAndroidEmulator =
+    isDev &&
+    Platform.OS === "android" &&
+    typeof Platform.constants === "object" &&
+    /sdk|emulator/i.test(
+      (Platform.constants as any).Model ||
+        (Platform.constants as any).Fingerprint ||
+        "",
+    );
+
   // Check for explicit API URL first (works for both dev and prod)
   const explicit = process.env.EXPO_PUBLIC_API_URL;
   if (explicit) {
@@ -27,6 +38,12 @@ export function getApiUrl(): string {
       return normalized.replace(/192\.168\.\d+\.\d+/, "localhost");
     }
 
+    // Android emulator: swap LAN IP for 10.0.2.2 (host alias)
+    if (isAndroidEmulator && /192\.168\.\d+\.\d+/.test(normalized)) {
+      const url = normalized.replace(/192\.168\.\d+\.\d+/, "10.0.2.2");
+      return new URL(url).href.replace(/\/$/, "");
+    }
+
     return new URL(normalized).href.replace(/\/$/, "");
   }
 
@@ -35,6 +52,10 @@ export function getApiUrl(): string {
     if (Platform.OS === "web") {
       return "http://localhost:5000";
     } else {
+      // Android emulator: use 10.0.2.2 (host alias)
+      if (isAndroidEmulator) {
+        return "http://10.0.2.2:5000";
+      }
       // Mobile: try to get IP from EXPO_PUBLIC_DOMAIN
       const domain = process.env.EXPO_PUBLIC_DOMAIN;
       if (domain) {

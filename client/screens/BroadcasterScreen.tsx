@@ -30,7 +30,6 @@ import { Button } from "@/components/Button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ProductCarousel } from "@/components/ProductCarousel";
 import { ProductSelectionSheet } from "@/components/ProductSelectionSheet";
-import { useTheme } from "@/hooks/useTheme";
 import { BorderRadius, Spacing, Shadows } from "@/constants/theme";
 import { productsService } from "@/services/products";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -57,7 +56,6 @@ if (Platform.OS !== "web") {
 }
 
 export default function BroadcasterScreen() {
-  const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<BroadcasterRoute>();
@@ -570,7 +568,7 @@ export default function BroadcasterScreen() {
     if (!permission.granted || !micPermission.granted) {
       return (
         <View style={[styles.container, styles.permissionContainer]}>
-          <Feather name="video-off" size={64} color={theme.textSecondary} />
+          <Feather name="video-off" size={64} color="#C4B5FD" />
           <ThemedText style={styles.permissionTitle}>
             Camera Access Required
           </ThemedText>
@@ -605,7 +603,7 @@ export default function BroadcasterScreen() {
     <View style={styles.container}>
       {cameraError ? (
         <View style={[styles.webPlaceholder, { backgroundColor: "#000" }]}>
-          <Feather name="video-off" size={64} color={theme.textSecondary} />
+          <Feather name="video-off" size={64} color="#C4B5FD" />
           <ThemedText style={styles.webText}>
             {cameraError}
             {Platform.OS === "web"
@@ -638,7 +636,7 @@ export default function BroadcasterScreen() {
           />
           {!localVideoTrack && !webPreviewActive ? (
             <View style={styles.webPlaceholder}>
-              <Feather name="video" size={64} color={theme.textSecondary} />
+              <Feather name="video" size={64} color="#C4B5FD" />
               <ThemedText style={styles.webText}>
                 {isLive ? "Starting camera..." : "Starting preview..."}
               </ThemedText>
@@ -659,7 +657,7 @@ export default function BroadcasterScreen() {
             <CameraView style={StyleSheet.absoluteFill} facing={facing} />
           ) : (
             <View style={styles.webPlaceholder}>
-              <Feather name="video" size={64} color={theme.textSecondary} />
+              <Feather name="video" size={64} color="#C4B5FD" />
               <ThemedText style={styles.webText}>
                 {isLive ? "Starting camera..." : "Starting preview..."}
               </ThemedText>
@@ -671,7 +669,7 @@ export default function BroadcasterScreen() {
       <View style={styles.overlay}>
         <View style={[styles.topBar, { paddingTop: insets.top + Spacing.sm }]}>
           <Pressable onPress={handleEndStreamPress} style={styles.endButton}>
-            <Feather name="x" size={20} color={theme.buttonText} />
+            <Feather name="x" size={20} color="#FFFFFF" />
             {isLive ? (
               <ThemedText style={styles.endText}>End</ThemedText>
             ) : null}
@@ -684,7 +682,7 @@ export default function BroadcasterScreen() {
                 <ThemedText style={styles.liveText}>LIVE</ThemedText>
               </View>
               <View style={styles.viewerBadge}>
-                <Feather name="eye" size={12} color={theme.buttonText} />
+                <Feather name="eye" size={12} color="#FFFFFF" />
                 <ThemedText style={styles.viewerText}>
                   {viewerCount.toLocaleString()}
                 </ThemedText>
@@ -702,14 +700,14 @@ export default function BroadcasterScreen() {
         <View style={styles.sideControls}>
           {!isLive ? (
             <Pressable style={styles.controlButton} onPress={toggleCamera}>
-              <Feather name="refresh-cw" size={22} color={theme.buttonText} />
+              <Feather name="refresh-cw" size={22} color="#FFFFFF" />
             </Pressable>
           ) : null}
           <Pressable style={styles.controlButton} onPress={toggleMute}>
             <Feather
               name={isMuted ? "mic-off" : "mic"}
               size={22}
-              color={isMuted ? theme.primary : theme.buttonText}
+              color={isMuted ? "#FF6B35" : "#FFFFFF"}
             />
           </Pressable>
           <Pressable
@@ -718,7 +716,7 @@ export default function BroadcasterScreen() {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
             }
           >
-            <Feather name="sun" size={22} color={theme.buttonText} />
+            <Feather name="sun" size={22} color="#FFFFFF" />
           </Pressable>
         </View>
 
@@ -760,7 +758,7 @@ export default function BroadcasterScreen() {
               style={[styles.addProductFab, { bottom: addProductsBottom }]}
               onPress={() => setShowProductSheet(true)}
             >
-              <Feather name="plus" size={22} color={theme.buttonText} />
+              <Feather name="plus" size={22} color="#FFFFFF" />
             </Pressable>
           </>
         ) : null}
@@ -874,11 +872,13 @@ const styles = StyleSheet.create({
   permissionTitle: {
     fontSize: 22,
     fontWeight: "700",
+    color: "#FFFFFF",
     marginTop: Spacing.xl,
     marginBottom: Spacing.sm,
   },
   permissionText: {
     fontSize: 14,
+    color: "#C4B5FD",
     textAlign: "center",
     marginBottom: Spacing.xl,
   },
@@ -891,6 +891,7 @@ const styles = StyleSheet.create({
   },
   cancelText: {
     fontSize: 14,
+    color: "#C4B5FD",
   },
   webPlaceholder: {
     flex: 1,
@@ -899,6 +900,7 @@ const styles = StyleSheet.create({
   },
   webText: {
     fontSize: 14,
+    color: "#C4B5FD",
     marginTop: Spacing.lg,
     textAlign: "center",
     paddingHorizontal: Spacing["3xl"],
@@ -930,6 +932,7 @@ const styles = StyleSheet.create({
   endButton: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
@@ -938,6 +941,7 @@ const styles = StyleSheet.create({
   endText: {
     fontSize: 13,
     fontWeight: "600",
+    color: "#FFFFFF",
   },
   liveInfo: {
     flexDirection: "row",
@@ -947,6 +951,7 @@ const styles = StyleSheet.create({
   liveBadge: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "#ef4444",
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: BorderRadius.xs,
@@ -956,11 +961,13 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
+    backgroundColor: "#FFFFFF",
   },
   liveText: {
     fontSize: 11,
     fontWeight: "700",
     letterSpacing: 0.5,
+    color: "#FFFFFF",
   },
   viewerBadge: {
     flexDirection: "row",
@@ -974,6 +981,7 @@ const styles = StyleSheet.create({
   viewerText: {
     fontSize: 12,
     fontWeight: "600",
+    color: "#FFFFFF",
   },
   timerContainer: {
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -985,6 +993,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     fontVariant: ["tabular-nums"],
+    color: "#FFFFFF",
   },
   sideControls: {
     position: "absolute",
@@ -998,6 +1007,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
+    backgroundColor: "#FF6B35",
     alignItems: "center",
     justifyContent: "center",
     zIndex: 50,
@@ -1037,13 +1047,18 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
   },
-  cameraOptionActive: {},
+  cameraOptionActive: {
+    backgroundColor: "rgba(255,255,255,0.25)",
+  },
   cameraOptionText: {
     fontSize: 13,
     fontWeight: "700",
     letterSpacing: 0.2,
+    color: "rgba(255,255,255,0.6)",
   },
-  cameraOptionTextActive: {},
+  cameraOptionTextActive: {
+    color: "#FFFFFF",
+  },
   addProductSection: {
     width: "100%",
     paddingHorizontal: Spacing.lg,
@@ -1062,11 +1077,13 @@ const styles = StyleSheet.create({
   addProductText: {
     fontSize: 16,
     fontWeight: "600",
+    color: "#FFFFFF",
   },
   goLiveButton: {
     width: 100,
     height: 100,
     borderRadius: 50,
+    backgroundColor: "#FF6B35",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Platform.OS === "web" ? Spacing.xl : Spacing["3xl"],
@@ -1076,6 +1093,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "800",
     letterSpacing: 1,
+    color: "#FFFFFF",
   },
   chatSection: {
     position: "absolute",
@@ -1102,10 +1120,12 @@ const styles = StyleSheet.create({
   chatUserName: {
     fontSize: 12,
     fontWeight: "700",
+    color: "#FF6B35",
     marginRight: 4,
   },
   chatText: {
     fontSize: 13,
+    color: "#FFFFFF",
     flexShrink: 1,
     lineHeight: 18,
   },

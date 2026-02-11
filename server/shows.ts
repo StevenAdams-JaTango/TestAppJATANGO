@@ -237,6 +237,55 @@ export function registerShowRoutes(app: Express) {
   );
 
   /**
+   * POST /api/shows/batch-revenue
+   * Returns { [showId]: totalRevenue } for a list of show IDs in one query.
+   */
+  app.post(
+    "/api/shows/batch-revenue",
+    async (req: Request, res: Response): Promise<void> => {
+      try {
+        const { showIds } = req.body as { showIds: string[] };
+        if (!showIds || !Array.isArray(showIds) || showIds.length === 0) {
+          res.json({ revenues: {} });
+          return;
+        }
+
+        // Get all orders for these shows in one query
+        const { data: orders, error } = await supabase
+          .from("orders")
+          .select("show_id, subtotal, total_amount")
+          .in("show_id", showIds)
+          .eq("status", "paid");
+
+        if (error) {
+          console.error("[Shows] Error fetching batch revenue:", error);
+          res.status(500).json({ error: "Failed to fetch batch revenue" });
+          return;
+        }
+
+        // Aggregate revenue per show
+        const revenues: Record<string, number> = {};
+        for (const id of showIds) {
+          revenues[id] = 0;
+        }
+        for (const order of orders || []) {
+          const amount = parseFloat(order.subtotal || order.total_amount);
+          if (order.show_id && revenues[order.show_id] !== undefined) {
+            revenues[order.show_id] += amount;
+          }
+        }
+
+        res.json({ revenues });
+      } catch (error: any) {
+        console.error("[Shows] Error in batch-revenue:", error);
+        res
+          .status(500)
+          .json({ error: error.message || "Failed to fetch batch revenue" });
+      }
+    },
+  );
+
+  /**
    * POST /api/shows/:showId/cart-event
    * Logs a cart event (add/remove) for show-level tracking.
    */

@@ -439,7 +439,9 @@ export function ProductDetailSheet({
 
       if (result.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        if (keepOpenOnAdd) {
+        if (onBuyNow) {
+          onBuyNow(product);
+        } else if (keepOpenOnAdd) {
           showDialog("Added!", `${product.name} was added to your cart.`);
         } else {
           onClose();
@@ -459,7 +461,6 @@ export function ProductDetailSheet({
     } finally {
       setIsAddingToCart(false);
     }
-    onBuyNow?.(product);
   };
 
   return (

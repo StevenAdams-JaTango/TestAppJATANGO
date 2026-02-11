@@ -679,19 +679,24 @@ export default function SaleDetailScreen() {
         ),
       );
 
+      // Always update sale with the latest label info so UI reflects immediately
+      setSale((prev) =>
+        prev
+          ? {
+              ...prev,
+              trackingNumber: result.trackingNumber,
+              labelUrl: result.labelUrl,
+            }
+          : null,
+      );
+
       // If all parcels have labels, mark order as shipped
       const allShipped = parcels.every(
         (p) => p.id === parcelId || p.trackingNumber,
       );
       if (allShipped) {
         setSale((prev) =>
-          prev
-            ? {
-                ...prev,
-                trackingNumber: result.trackingNumber,
-                status: "shipped" as const,
-              }
-            : null,
+          prev ? { ...prev, status: "shipped" as const } : null,
         );
       }
 

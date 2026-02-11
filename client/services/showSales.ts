@@ -94,6 +94,21 @@ export const showSalesService = {
     }
   },
 
+  async fetchBatchRevenue(showIds: string[]): Promise<Record<string, number>> {
+    if (showIds.length === 0) return {};
+    const baseUrl = getApiUrl();
+    const res = await fetch(`${baseUrl}/api/shows/batch-revenue`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ showIds }),
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to fetch batch revenue (${res.status})`);
+    }
+    const data = await res.json();
+    return data.revenues;
+  },
+
   async cleanupReservations(showId: string): Promise<void> {
     const baseUrl = getApiUrl();
     const res = await fetch(

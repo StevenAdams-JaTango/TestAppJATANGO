@@ -14,7 +14,7 @@ import { Card } from "@/components/Card";
 import { useTheme } from "@/hooks/useTheme";
 import { useThemeContext } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { Spacing, BorderRadius, type ThemePreset } from "@/constants/theme";
+import { Spacing } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -23,18 +23,13 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const { theme } = useTheme();
-  const { mode, setMode, presetId, setPresetId, presets } = useThemeContext();
+  const { mode, setMode } = useThemeContext();
   const navigation = useNavigation<NavigationProp>();
   const { signOut } = useAuth();
 
   const handleLogout = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     await signOut();
-  };
-
-  const handlePresetSelect = (id: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setPresetId(id);
   };
 
   return (
@@ -145,26 +140,6 @@ export default function SettingsScreen() {
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(300).springify()}>
-        <ThemedText
-          style={[styles.sectionTitle, { color: theme.textSecondary }]}
-        >
-          Color Theme
-        </ThemedText>
-        <View style={styles.presetGrid}>
-          {presets.map((preset, index) => (
-            <PresetCard
-              key={preset.id}
-              preset={preset}
-              isSelected={presetId === preset.id}
-              onPress={() => handlePresetSelect(preset.id)}
-              theme={theme}
-              index={index}
-            />
-          ))}
-        </View>
-      </Animated.View>
-
-      <Animated.View entering={FadeInDown.delay(400).springify()}>
         <Card elevation={1} style={styles.logoutCard}>
           <Pressable style={styles.menuItem} onPress={handleLogout}>
             <Feather name="log-out" size={20} color={theme.primary} />
@@ -181,128 +156,6 @@ export default function SettingsScreen() {
         </ThemedText>
       </View>
     </KeyboardAwareScrollViewCompat>
-  );
-}
-
-function PresetCard({
-  preset,
-  isSelected,
-  onPress,
-  theme,
-  index,
-}: {
-  preset: ThemePreset;
-  isSelected: boolean;
-  onPress: () => void;
-  theme: any;
-  index: number;
-}) {
-  const previewColors = preset.light;
-
-  return (
-    <Animated.View
-      entering={FadeInDown.delay(300 + index * 60).springify()}
-      style={styles.presetWrapper}
-    >
-      <Pressable
-        onPress={onPress}
-        style={[
-          styles.presetCard,
-          {
-            backgroundColor: theme.backgroundDefault,
-            borderColor: isSelected ? theme.primary : theme.border,
-            borderWidth: isSelected ? 2 : 1,
-          },
-        ]}
-      >
-        {/* Color swatch preview */}
-        <View style={styles.swatchRow}>
-          <View
-            style={[
-              styles.swatchLarge,
-              { backgroundColor: previewColors.primary },
-            ]}
-          />
-          <View
-            style={[
-              styles.swatchMedium,
-              { backgroundColor: previewColors.secondary },
-            ]}
-          />
-          <View
-            style={[
-              styles.swatchSmall,
-              { backgroundColor: previewColors.backgroundSecondary },
-            ]}
-          />
-        </View>
-
-        {/* Mini UI preview */}
-        <View
-          style={[
-            styles.miniPreview,
-            { backgroundColor: previewColors.backgroundDefault },
-          ]}
-        >
-          <View
-            style={[styles.miniBar, { backgroundColor: previewColors.primary }]}
-          />
-          <View style={styles.miniContent}>
-            <View
-              style={[
-                styles.miniLine,
-                {
-                  backgroundColor: previewColors.text,
-                  width: "70%",
-                },
-              ]}
-            />
-            <View
-              style={[
-                styles.miniLine,
-                {
-                  backgroundColor: previewColors.textSecondary,
-                  width: "50%",
-                },
-              ]}
-            />
-          </View>
-          <View
-            style={[
-              styles.miniButton,
-              { backgroundColor: previewColors.primary },
-            ]}
-          />
-        </View>
-
-        {/* Label + icon */}
-        <View style={styles.presetFooter}>
-          <Feather
-            name={preset.icon as keyof typeof Feather.glyphMap}
-            size={14}
-            color={isSelected ? theme.primary : theme.textSecondary}
-          />
-          <ThemedText
-            style={[
-              styles.presetName,
-              {
-                color: isSelected ? theme.primary : theme.text,
-                fontWeight: isSelected ? "700" : "500",
-              },
-            ]}
-          >
-            {preset.name}
-          </ThemedText>
-        </View>
-
-        {/* Selected check */}
-        {isSelected && (
-          <View style={[styles.checkBadge, { backgroundColor: theme.primary }]}>
-            <Feather name="check" size={10} color="#FFFFFF" />
-          </View>
-        )}
-      </Pressable>
-    </Animated.View>
   );
 }
 
@@ -389,84 +242,6 @@ const styles = StyleSheet.create({
   themeOptionText: {
     fontSize: 13,
     fontWeight: "600",
-  },
-  presetGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.sm,
-  },
-  presetWrapper: {
-    width: "48%",
-    flexGrow: 1,
-  },
-  presetCard: {
-    borderRadius: BorderRadius.sm,
-    padding: Spacing.sm,
-    position: "relative",
-    overflow: "hidden",
-  },
-  swatchRow: {
-    flexDirection: "row",
-    gap: 6,
-    marginBottom: Spacing.sm,
-  },
-  swatchLarge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-  },
-  swatchMedium: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-  },
-  swatchSmall: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-  },
-  miniPreview: {
-    borderRadius: 6,
-    padding: 6,
-    marginBottom: Spacing.sm,
-  },
-  miniBar: {
-    height: 4,
-    borderRadius: 2,
-    width: "100%",
-    marginBottom: 6,
-  },
-  miniContent: {
-    gap: 3,
-    marginBottom: 6,
-  },
-  miniLine: {
-    height: 3,
-    borderRadius: 1.5,
-    opacity: 0.6,
-  },
-  miniButton: {
-    height: 10,
-    borderRadius: 5,
-    width: "40%",
-  },
-  presetFooter: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  presetName: {
-    fontSize: 13,
-  },
-  checkBadge: {
-    position: "absolute",
-    top: 6,
-    right: 6,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: "center",
-    justifyContent: "center",
   },
   logoutCard: {
     paddingVertical: Spacing.xs,

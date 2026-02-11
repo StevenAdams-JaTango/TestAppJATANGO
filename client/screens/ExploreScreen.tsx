@@ -21,12 +21,14 @@ import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing } from "@/constants/theme";
 import { productsService } from "@/services/products";
+import { useAuth } from "@/contexts/AuthContext";
 import { Product } from "@/types";
 
 export default function ExploreScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
+  const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -37,13 +39,15 @@ export default function ExploreScreen() {
   const loadProducts = useCallback(async () => {
     try {
       const data = await productsService.listAllProducts();
-      setProducts(data);
+      // Filter out the current user's own products
+      const filtered = user ? data.filter((p) => p.sellerId !== user.id) : data;
+      setProducts(filtered);
     } catch (error) {
       console.error("Error loading products:", error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     loadProducts();

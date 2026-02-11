@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   View,
   StyleSheet,
@@ -44,6 +44,7 @@ export default function ShowsScreen() {
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
   const [draftToDelete, setDraftToDelete] = useState<string | null>(null);
   const [revenueMap, setRevenueMap] = useState<Record<string, number>>({});
+  const hasLoaded = useRef(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -55,19 +56,17 @@ export default function ShowsScreen() {
       setUpcomingShows(upcoming);
       setPastShows(past);
 
-      // Fetch revenue for past shows
-      const revenues: Record<string, number> = {};
-      await Promise.all(
-        past.map(async (show) => {
-          try {
-            const summary = await showSalesService.fetchShowSummary(show.id);
-            revenues[show.id] = summary.summary.totalRevenue;
-          } catch {
-            revenues[show.id] = 0;
-          }
-        }),
-      );
-      setRevenueMap(revenues);
+      // Fetch revenue for past shows in a single batch request
+      if (past.length > 0) {
+        try {
+          const revenues = await showSalesService.fetchBatchRevenue(
+            past.map((s) => s.id),
+          );
+          setRevenueMap(revenues);
+        } catch {
+          setRevenueMap({});
+        }
+      }
     } catch (error) {
       console.error("[ShowsScreen] Failed to load shows:", error);
     } finally {
@@ -77,7 +76,10 @@ export default function ShowsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      load();
+      if (!hasLoaded.current) {
+        hasLoaded.current = true;
+        load();
+      }
     }, [load]),
   );
 

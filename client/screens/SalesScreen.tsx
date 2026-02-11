@@ -74,7 +74,7 @@ export default function SalesScreen() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [filter, setFilter] = useState<StatusFilter>("all");
+  const [filter, setFilter] = useState<StatusFilter>("paid");
 
   const loadSales = useCallback(async () => {
     if (!user?.id) return;

@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { registerForPushNotifications } from "@/services/notifications";
 
 interface AuthContextType {
   user: User | null;
@@ -57,6 +58,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           clearInterval(pollingRef.current);
           pollingRef.current = null;
         }
+        // Register for push notifications
+        registerForPushNotifications(session.user.id).catch((err) =>
+          console.warn("[Auth] Push notification registration failed:", err),
+        );
       }
     });
 

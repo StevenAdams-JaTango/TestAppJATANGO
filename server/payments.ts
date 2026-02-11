@@ -22,6 +22,57 @@ if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+/**
+ * Send a push notification to a seller when they receive a new sale.
+ */
+async function notifySellerOfSale(
+  sellerId: string,
+  totalAmount: number,
+  itemCount: number,
+) {
+  try {
+    const { data: sellerProfile } = await supabase
+      .from("profiles")
+      .select("push_token, name")
+      .eq("id", sellerId)
+      .single();
+
+    if (!sellerProfile?.push_token) {
+      console.log(
+        `[Notifications] No push token for seller ${sellerId}, skipping`,
+      );
+      return;
+    }
+
+    const message = {
+      to: sellerProfile.push_token,
+      sound: "default",
+      title: "New Sale! 🎉",
+      body: `You just sold ${itemCount} item${itemCount !== 1 ? "s" : ""} for $${totalAmount.toFixed(2)}`,
+      data: { type: "new_sale" },
+      channelId: "sales",
+    };
+
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Accept-encoding": "gzip, deflate",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(message),
+    });
+
+    const result = await response.json();
+    console.log(
+      `[Notifications] Push sent to seller ${sellerId}:`,
+      result.data?.status || result,
+    );
+  } catch (err) {
+    console.error(`[Notifications] Failed to notify seller ${sellerId}:`, err);
+  }
+}
+
 interface CartItemPayload {
   id: string;
   productId: string;
@@ -329,6 +380,13 @@ export function registerPaymentRoutes(app: Express) {
         `[Payments] Order ${order.id} confirmed for user ${userId} ($${totalAmount.toFixed(2)})`,
       );
 
+      // Send push notification to seller
+      const sellerId = items[0]?.sellerId;
+      if (sellerId) {
+        const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
+        notifySellerOfSale(sellerId, totalAmount, itemCount);
+      }
+
       return res.json({
         orderId: order.id,
         status: "paid",
@@ -514,6 +572,13 @@ export function registerPaymentRoutes(app: Express) {
         console.log(
           `[Payments] Order ${order.id} created via saved card for user ${userId}`,
         );
+
+        // Send push notification to seller
+        const savedCardSellerId = items[0]?.sellerId;
+        if (savedCardSellerId) {
+          const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
+          notifySellerOfSale(savedCardSellerId, totalAmount, itemCount);
+        }
 
         return res.json({
           orderId: order.id,

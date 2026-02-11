@@ -23,7 +23,6 @@ import { ProductDetailSheet } from "@/components/ProductDetailSheet";
 import { CartBottomSheet } from "@/components/CartBottomSheet";
 import { CheckoutBottomSheet } from "@/components/CheckoutBottomSheet";
 import { LiveKitVideo } from "@/components/LiveKitVideo";
-import { useTheme } from "@/hooks/useTheme";
 import { BorderRadius, Spacing } from "@/constants/theme";
 import { mockLiveStreams } from "@/data/mockData";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -49,7 +48,6 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RoutePropType = RouteProp<RootStackParamList, "LiveStream">;
 
 export default function LiveStreamScreen() {
-  const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RoutePropType>();
@@ -291,7 +289,7 @@ export default function LiveStreamScreen() {
         <View style={styles.realStreamContainer}>
           {mobileUnsupported ? (
             <View style={styles.connectingContainer}>
-              <Feather name="smartphone" size={48} color={theme.primary} />
+              <Feather name="smartphone" size={48} color="#FF6B35" />
               <ThemedText style={styles.connectedText}>
                 Live Stream Available
               </ThemedText>
@@ -302,7 +300,7 @@ export default function LiveStreamScreen() {
             </View>
           ) : streaming.isConnecting ? (
             <View style={styles.connectingContainer}>
-              <Feather name="wifi" size={48} color={theme.primary} />
+              <Feather name="wifi" size={48} color="#FF6B35" />
               <ThemedText style={styles.connectingText}>
                 Connecting to stream...
               </ThemedText>
@@ -339,7 +337,7 @@ export default function LiveStreamScreen() {
       <View style={styles.overlay}>
         <View style={[styles.topBar, { paddingTop: insets.top + Spacing.sm }]}>
           <Pressable onPress={handleBack} style={styles.backButton}>
-            <Feather name="x" size={24} color={theme.buttonText} />
+            <Feather name="x" size={24} color="#FFFFFF" />
           </Pressable>
           <Animated.View entering={FadeIn.delay(200)} style={styles.sellerChip}>
             <View style={styles.sellerAvatar}>
@@ -349,7 +347,7 @@ export default function LiveStreamScreen() {
                   style={styles.avatarImage}
                 />
               ) : (
-                <Feather name="user" size={14} color={theme.buttonText} />
+                <Feather name="user" size={14} color="#FFFFFF" />
               )}
             </View>
             <ThemedText style={styles.sellerName}>
@@ -364,11 +362,7 @@ export default function LiveStreamScreen() {
                 setShowCartSheet(true);
               }}
             >
-              <Feather
-                name="shopping-cart"
-                size={20}
-                color={theme.buttonText}
-              />
+              <Feather name="shopping-cart" size={20} color="#FFFFFF" />
               {totalItems > 0 && (
                 <View style={styles.cartBadge}>
                   <ThemedText style={styles.cartBadgeText}>
@@ -379,7 +373,7 @@ export default function LiveStreamScreen() {
             </Pressable>
             <LiveBadge size="small" />
             <View style={styles.viewerCount}>
-              <Feather name="eye" size={12} color={theme.buttonText} />
+              <Feather name="eye" size={12} color="#FFFFFF" />
               <ThemedText style={styles.viewerText}>
                 {viewerCount.toLocaleString()}
               </ThemedText>
@@ -394,7 +388,7 @@ export default function LiveStreamScreen() {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
             }
           >
-            <Feather name="heart" size={24} color={theme.buttonText} />
+            <Feather name="heart" size={24} color="#FFFFFF" />
           </Pressable>
           <Pressable
             style={styles.actionButton}
@@ -402,13 +396,13 @@ export default function LiveStreamScreen() {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
             }
           >
-            <Feather name="share" size={24} color={theme.buttonText} />
+            <Feather name="share" size={24} color="#FFFFFF" />
           </Pressable>
           <Pressable style={styles.actionButton} onPress={toggleCarousel}>
             <Feather
               name="shopping-bag"
               size={24}
-              color={showCarousel ? theme.primary : theme.buttonText}
+              color={showCarousel ? "#FF6B35" : "#FFFFFF"}
             />
           </Pressable>
         </View>
@@ -434,7 +428,7 @@ export default function LiveStreamScreen() {
             testID="chat-input"
           />
           <Pressable onPress={handleSendMessage} style={styles.sendButton}>
-            <Feather name="send" size={18} color={theme.buttonText} />
+            <Feather name="send" size={18} color="#FFFFFF" />
           </Pressable>
         </View>
 
@@ -474,6 +468,10 @@ export default function LiveStreamScreen() {
         hidePurchaseActions={isHostViewer}
         keepOpenOnAdd
         showId={showId}
+        onBuyNow={() => {
+          handleCloseProductSheet();
+          setShowCartSheet(true);
+        }}
       />
 
       <CartBottomSheet

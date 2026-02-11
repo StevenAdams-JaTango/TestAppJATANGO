@@ -14,14 +14,12 @@ import { useTheme } from "@/hooks/useTheme";
 import { BorderRadius, Spacing } from "@/constants/theme";
 import { ShippingRate } from "@/types";
 
-/* eslint-disable prettier/prettier */
 const CARRIER_LOGOS: Record<string, string> = {
-  usps: "https://cdn.brandfetch.io/idL0iThUQR/w/512/h/512/theme/dark/icon.jpeg",
-  ups: "https://cdn.brandfetch.io/id2S-kXbuX/w/512/h/512/theme/dark/icon.jpeg",
-  fedex: "https://cdn.brandfetch.io/id8mMFplKP/w/512/h/512/theme/dark/icon.jpeg",
-  dhl: "https://cdn.brandfetch.io/idZmpfgsGY/w/512/h/512/theme/dark/icon.jpeg",
+  usps: "https://logo.clearbit.com/usps.com",
+  ups: "https://logo.clearbit.com/ups.com",
+  fedex: "https://logo.clearbit.com/fedex.com",
+  dhl: "https://logo.clearbit.com/dhl.com",
 };
-/* eslint-enable prettier/prettier */
 
 const CARRIER_NAMES: Record<string, string> = {
   usps: "USPS",

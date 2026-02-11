@@ -8,56 +8,37 @@ import React, {
 } from "react";
 import { useColorScheme } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import {
-  Colors,
-  ThemePresets,
-  type ThemeColors,
-  type ThemePreset,
-} from "@/constants/theme";
+import { Colors, type ThemeColors } from "@/constants/theme";
 
 type ThemeMode = "system" | "light" | "dark";
 
 const STORAGE_KEY_MODE = "@jatango_theme_mode";
-const STORAGE_KEY_PRESET = "@jatango_theme_preset";
 
 interface ThemeContextValue {
   mode: ThemeMode;
   setMode: (mode: ThemeMode) => void;
   isDark: boolean;
   theme: ThemeColors;
-  presetId: string;
-  setPresetId: (id: string) => void;
-  presets: ThemePreset[];
 }
-
-const defaultPreset = ThemePresets[0];
 
 const ThemeContext = createContext<ThemeContextValue>({
   mode: "system",
   setMode: () => {},
   isDark: false,
   theme: Colors.light,
-  presetId: "default",
-  setPresetId: () => {},
-  presets: ThemePresets,
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const systemScheme = useColorScheme();
   const [mode, setModeState] = useState<ThemeMode>("system");
-  const [presetId, setPresetIdState] = useState("default");
   const [loaded, setLoaded] = useState(false);
 
   // Load persisted preferences on mount
   useEffect(() => {
     (async () => {
       try {
-        const [savedMode, savedPreset] = await Promise.all([
-          AsyncStorage.getItem(STORAGE_KEY_MODE),
-          AsyncStorage.getItem(STORAGE_KEY_PRESET),
-        ]);
+        const savedMode = await AsyncStorage.getItem(STORAGE_KEY_MODE);
         if (savedMode) setModeState(savedMode as ThemeMode);
-        if (savedPreset) setPresetIdState(savedPreset);
       } catch {
         // Ignore storage errors, use defaults
       } finally {
@@ -71,34 +52,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.setItem(STORAGE_KEY_MODE, m).catch(() => {});
   }, []);
 
-  const setPresetId = useCallback((id: string) => {
-    setPresetIdState(id);
-    AsyncStorage.setItem(STORAGE_KEY_PRESET, id).catch(() => {});
-  }, []);
-
   const isDark = useMemo(() => {
     if (mode === "system") return systemScheme === "dark";
     return mode === "dark";
   }, [mode, systemScheme]);
 
-  const preset = useMemo(
-    () => ThemePresets.find((p) => p.id === presetId) || defaultPreset,
-    [presetId],
-  );
-
-  const theme = isDark ? preset.dark : preset.light;
+  const theme = isDark ? Colors.dark : Colors.light;
 
   const value = useMemo(
-    () => ({
-      mode,
-      setMode,
-      isDark,
-      theme,
-      presetId,
-      setPresetId,
-      presets: ThemePresets,
-    }),
-    [mode, setMode, isDark, theme, presetId, setPresetId],
+    () => ({ mode, setMode, isDark, theme }),
+    [mode, setMode, isDark, theme],
   );
 
   // Don't render until preferences are loaded to avoid flash

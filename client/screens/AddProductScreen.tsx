@@ -1035,14 +1035,16 @@ export default function AddProductScreen() {
                       key={unit}
                       style={[
                         styles.unitBtn,
-                        weightUnit === unit && styles.unitBtnActive,
+                        weightUnit === unit && {
+                          backgroundColor: theme.primary,
+                        },
                       ]}
                       onPress={() => setWeightUnit(unit)}
                     >
                       <ThemedText
                         style={[
                           styles.unitText,
-                          weightUnit === unit && styles.unitTextActive,
+                          weightUnit === unit && { color: "#FFFFFF" },
                         ]}
                       >
                         {unit}
@@ -1166,14 +1168,16 @@ export default function AddProductScreen() {
                       key={unit}
                       style={[
                         styles.unitBtn,
-                        dimensionUnit === unit && styles.unitBtnActive,
+                        dimensionUnit === unit && {
+                          backgroundColor: theme.primary,
+                        },
                       ]}
                       onPress={() => setDimensionUnit(unit)}
                     >
                       <ThemedText
                         style={[
                           styles.unitText,
-                          dimensionUnit === unit && styles.unitTextActive,
+                          dimensionUnit === unit && { color: "#FFFFFF" },
                         ]}
                       >
                         {unit}
@@ -2145,8 +2149,9 @@ export default function AddProductScreen() {
                               key={unit}
                               style={[
                                 styles.unitBtn,
-                                variant.weightUnit === unit &&
-                                  styles.unitBtnActive,
+                                variant.weightUnit === unit && {
+                                  backgroundColor: theme.primary,
+                                },
                               ]}
                               onPress={() =>
                                 handleUpdateVariantField(
@@ -2159,8 +2164,9 @@ export default function AddProductScreen() {
                               <ThemedText
                                 style={[
                                   styles.unitText,
-                                  variant.weightUnit === unit &&
-                                    styles.unitTextActive,
+                                  variant.weightUnit === unit && {
+                                    color: "#FFFFFF",
+                                  },
                                 ]}
                               >
                                 {unit}
@@ -2210,8 +2216,9 @@ export default function AddProductScreen() {
                               key={unit}
                               style={[
                                 styles.unitBtn,
-                                variant.dimensionUnit === unit &&
-                                  styles.unitBtnActive,
+                                variant.dimensionUnit === unit && {
+                                  backgroundColor: theme.primary,
+                                },
                               ]}
                               onPress={() =>
                                 handleUpdateVariantField(
@@ -2224,8 +2231,9 @@ export default function AddProductScreen() {
                               <ThemedText
                                 style={[
                                   styles.unitText,
-                                  variant.dimensionUnit === unit &&
-                                    styles.unitTextActive,
+                                  variant.dimensionUnit === unit && {
+                                    color: "#FFFFFF",
+                                  },
                                 ]}
                               >
                                 {unit}
@@ -2463,12 +2471,13 @@ export default function AddProductScreen() {
           <Pressable
             style={[
               styles.saveBtn,
+              { backgroundColor: theme.primary },
               (saving || !canSave) && styles.saveBtnDisabled,
             ]}
             onPress={handleSave}
             disabled={saving || !canSave}
           >
-            <ThemedText style={styles.saveBtnText}>
+            <ThemedText style={[styles.saveBtnText, { color: "#FFFFFF" }]}>
               {saving ? "Saving..." : "Save"}
             </ThemedText>
           </Pressable>
@@ -2821,12 +2830,10 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: BorderRadius.xs,
   },
-  unitBtnActive: {},
   unitText: {
     fontSize: 12,
     fontWeight: "600",
   },
-  unitTextActive: {},
   quantityInput: {
     flexDirection: "row",
     alignItems: "center",

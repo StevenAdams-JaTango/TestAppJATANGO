@@ -21,15 +21,17 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
+import { ShippingRateSelector } from "@/components/ShippingRateSelector";
 import { useTheme } from "@/hooks/useTheme";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useStripe } from "@/hooks/useStripePayment";
 import { checkoutService } from "@/services/checkout";
 import { settingsService, SavedPaymentMethod } from "@/services/settings";
+import { shippingService } from "@/services/shipping";
 import { BorderRadius, Spacing } from "@/constants/theme";
 import { Cart, getStoreTotal } from "@/types/cart";
-import { ShippingAddress } from "@/types";
+import { ShippingAddress, ShippingRate } from "@/types";
 
 const isWeb = Platform.OS === "web";
 
@@ -68,13 +70,22 @@ export function CheckoutBottomSheet({
   );
   const [isLoadingData, setIsLoadingData] = useState(false);
 
+  // Shipping rate state
+  const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
+  const [selectedShippingRate, setSelectedShippingRate] =
+    useState<ShippingRate | null>(null);
+  const [isLoadingRates, setIsLoadingRates] = useState(false);
+  const [ratesError, setRatesError] = useState<string | null>(null);
+
   const store = sellerId
     ? cart.stores.find((s) => s.sellerId === sellerId)
     : null;
   const storeTotal = store ? getStoreTotal(store) : 0;
   const salesTaxRate = 0.08;
   const salesTax = Math.round(storeTotal * salesTaxRate * 100) / 100;
-  const grandTotal = Math.round((storeTotal + salesTax) * 100) / 100;
+  const shippingCost = selectedShippingRate?.amount || 0;
+  const grandTotal =
+    Math.round((storeTotal + salesTax + shippingCost) * 100) / 100;
   const totalItems = store
     ? store.items.reduce((sum, item) => sum + item.quantity, 0)
     : 0;
@@ -97,6 +108,10 @@ export function CheckoutBottomSheet({
       setSelectedCardId(null);
       setSelectedAddressId(null);
       setIsLoadingData(false);
+      setShippingRates([]);
+      setSelectedShippingRate(null);
+      setIsLoadingRates(false);
+      setRatesError(null);
     }
   }, [visible]);
 
@@ -190,6 +205,9 @@ export function CheckoutBottomSheet({
               phone: selectedAddr.phone || undefined,
             }
           : undefined,
+        selectedShippingRate?.amount,
+        selectedShippingRate?.carrier,
+        selectedShippingRate?.serviceName,
       );
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -236,6 +254,7 @@ export function CheckoutBottomSheet({
         storeCart,
         user.id,
         user.email || undefined,
+        selectedShippingRate?.amount,
       );
 
       // 2. Init PaymentSheet
@@ -288,6 +307,9 @@ export function CheckoutBottomSheet({
               phone: selectedAddr.phone || undefined,
             }
           : undefined,
+        selectedShippingRate?.amount,
+        selectedShippingRate?.carrier,
+        selectedShippingRate?.serviceName,
       );
 
       await clearStoreCart(sellerId);
@@ -556,6 +578,96 @@ export function CheckoutBottomSheet({
                     </View>
                   )}
 
+                  {/* Shipping Rate Selection */}
+                  {selectedAddressId && sellerId && (
+                    <>
+                      <ThemedText style={styles.sectionTitle}>
+                        Shipping Method
+                      </ThemedText>
+                      {shippingRates.length === 0 &&
+                      !isLoadingRates &&
+                      !ratesError ? (
+                        <Button
+                          style={[
+                            styles.getRatesButton,
+                            { backgroundColor: theme.backgroundDefault },
+                          ]}
+                          onPress={async () => {
+                            if (!sellerId || !user?.id) return;
+                            setIsLoadingRates(true);
+                            setRatesError(null);
+                            try {
+                              const storeAddr =
+                                await shippingService.getStoreAddress(sellerId);
+                              if (!storeAddr) {
+                                setRatesError(
+                                  "This seller hasn't set up shipping yet.",
+                                );
+                                setIsLoadingRates(false);
+                                return;
+                              }
+                              const selectedAddr = addresses.find(
+                                (a) => a.id === selectedAddressId,
+                              );
+                              if (!selectedAddr) {
+                                setIsLoadingRates(false);
+                                return;
+                              }
+                              const result = await shippingService.getRates(
+                                {
+                                  name: "Store",
+                                  street1: storeAddr.addressLine1,
+                                  street2: storeAddr.addressLine2,
+                                  city: storeAddr.city,
+                                  state: storeAddr.state,
+                                  zip: storeAddr.zip,
+                                  country: storeAddr.country || "US",
+                                },
+                                {
+                                  name: selectedAddr.name,
+                                  street1: selectedAddr.addressLine1,
+                                  street2: selectedAddr.addressLine2,
+                                  city: selectedAddr.city,
+                                  state: selectedAddr.state,
+                                  zip: selectedAddr.zip,
+                                  country: selectedAddr.country || "US",
+                                },
+                                {
+                                  length: "6",
+                                  width: "4",
+                                  height: "4",
+                                  distanceUnit: "in",
+                                  weight: "1",
+                                  massUnit: "lb",
+                                },
+                              );
+                              setShippingRates(result.rates);
+                              if (result.rates.length > 0) {
+                                setSelectedShippingRate(result.rates[0]);
+                              }
+                            } catch (err: any) {
+                              setRatesError(
+                                err.message || "Failed to get shipping rates",
+                              );
+                            } finally {
+                              setIsLoadingRates(false);
+                            }
+                          }}
+                        >
+                          Get Shipping Rates
+                        </Button>
+                      ) : (
+                        <ShippingRateSelector
+                          rates={shippingRates}
+                          selectedRateId={selectedShippingRate?.rateId || null}
+                          onSelect={setSelectedShippingRate}
+                          isLoading={isLoadingRates}
+                          error={ratesError}
+                        />
+                      )}
+                    </>
+                  )}
+
                   {/* Order Summary */}
                   <ThemedText style={styles.sectionTitle}>
                     Order Summary
@@ -662,7 +774,11 @@ export function CheckoutBottomSheet({
                           { color: theme.textSecondary },
                         ]}
                       >
-                        Free
+                        {shippingCost > 0
+                          ? `$${shippingCost.toFixed(2)}`
+                          : selectedShippingRate
+                            ? "Free"
+                            : "—"}
                       </ThemedText>
                     </View>
                     <View style={styles.totalRow}>
@@ -828,6 +944,12 @@ const styles = StyleSheet.create({
   emptyCardText: {
     fontSize: 14,
     fontWeight: "600",
+  },
+  getRatesButton: {
+    borderWidth: 1,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    alignItems: "center",
   },
   storeSection: {
     borderWidth: 1,

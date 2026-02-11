@@ -112,10 +112,11 @@ export function registerPaymentRoutes(app: Express) {
     "/api/checkout/create-payment-intent",
     async (req: Request, res: Response) => {
       try {
-        const { items, userId, email } = req.body as {
+        const { items, userId, email, shippingCost } = req.body as {
           items: CartItemPayload[];
           userId: string;
           email?: string;
+          shippingCost?: number;
         };
 
         if (!items || items.length === 0) {
@@ -143,7 +144,9 @@ export function registerPaymentRoutes(app: Express) {
 
         // Calculate sales tax
         const salesTax = Math.round(subtotal * SALES_TAX_RATE * 100) / 100;
-        const totalAmount = Math.round((subtotal + salesTax) * 100) / 100;
+        const shipping = shippingCost || 0;
+        const totalAmount =
+          Math.round((subtotal + salesTax + shipping) * 100) / 100;
 
         // Stripe expects amount in cents
         const amountInCents = Math.round(totalAmount * 100);
@@ -197,11 +200,22 @@ export function registerPaymentRoutes(app: Express) {
    */
   app.post("/api/checkout/confirm", async (req: Request, res: Response) => {
     try {
-      const { paymentIntentId, userId, items, shippingAddress } = req.body as {
+      const {
+        paymentIntentId,
+        userId,
+        items,
+        shippingAddress,
+        shippingCost,
+        shippingCarrier,
+        shippingService,
+      } = req.body as {
         paymentIntentId: string;
         userId: string;
         items: CartItemPayload[];
         shippingAddress?: Record<string, any>;
+        shippingCost?: number;
+        shippingCarrier?: string;
+        shippingService?: string;
       };
 
       if (!paymentIntentId || !userId || !items?.length) {
@@ -243,6 +257,10 @@ export function registerPaymentRoutes(app: Express) {
           currency: "usd",
           shipping_address: shippingAddress || null,
           show_id: showId,
+          shipping_cost: shippingCost || 0,
+          shipping_carrier: shippingCarrier || null,
+          shipping_service: shippingService || null,
+          seller_id: items[0]?.sellerId || null,
         })
         .select("id")
         .single();
@@ -333,14 +351,25 @@ export function registerPaymentRoutes(app: Express) {
     "/api/checkout/pay-with-saved-card",
     async (req: Request, res: Response) => {
       try {
-        const { items, userId, email, paymentMethodId, shippingAddress } =
-          req.body as {
-            items: CartItemPayload[];
-            userId: string;
-            email?: string;
-            paymentMethodId: string;
-            shippingAddress?: Record<string, any>;
-          };
+        const {
+          items,
+          userId,
+          email,
+          paymentMethodId,
+          shippingAddress,
+          shippingCost,
+          shippingCarrier,
+          shippingService,
+        } = req.body as {
+          items: CartItemPayload[];
+          userId: string;
+          email?: string;
+          paymentMethodId: string;
+          shippingAddress?: Record<string, any>;
+          shippingCost?: number;
+          shippingCarrier?: string;
+          shippingService?: string;
+        };
 
         if (!items || items.length === 0) {
           return res.status(400).json({ error: "No items provided" });
@@ -354,13 +383,15 @@ export function registerPaymentRoutes(app: Express) {
 
         const customerId = await getOrCreateStripeCustomer(userId, email);
 
-        // Calculate subtotal + sales tax
+        // Calculate subtotal + sales tax + shipping
         let subtotal = 0;
         for (const item of items) {
           subtotal += item.unitPrice * item.quantity;
         }
         const salesTax = Math.round(subtotal * SALES_TAX_RATE * 100) / 100;
-        const totalAmount = Math.round((subtotal + salesTax) * 100) / 100;
+        const shipping = shippingCost || 0;
+        const totalAmount =
+          Math.round((subtotal + salesTax + shipping) * 100) / 100;
         const amountInCents = Math.round(totalAmount * 100);
 
         if (amountInCents < 50) {
@@ -413,6 +444,10 @@ export function registerPaymentRoutes(app: Express) {
             currency: "usd",
             shipping_address: shippingAddress || null,
             show_id: savedCardShowId,
+            shipping_cost: shippingCost || 0,
+            shipping_carrier: shippingCarrier || null,
+            shipping_service: shippingService || null,
+            seller_id: items[0]?.sellerId || null,
           })
           .select("id")
           .single();

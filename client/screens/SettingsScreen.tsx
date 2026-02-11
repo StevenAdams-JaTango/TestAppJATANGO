@@ -75,6 +75,16 @@ export default function SettingsScreen() {
             }}
             theme={theme}
           />
+          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+          <MenuItem
+            icon="home"
+            label="Store Address"
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("StoreAddress");
+            }}
+            theme={theme}
+          />
         </Card>
       </Animated.View>
 

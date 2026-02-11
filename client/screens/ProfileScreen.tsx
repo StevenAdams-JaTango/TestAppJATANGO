@@ -31,6 +31,7 @@ import { useCart } from "@/contexts/CartContext";
 import { Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { supabase } from "@/lib/supabase";
 import { uploadImage } from "@/services/storage";
+import { shippingService } from "@/services/shipping";
 import * as ImagePicker from "expo-image-picker";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { ProfileStackParamList } from "@/navigation/ProfileStackNavigator";
@@ -62,6 +63,7 @@ export default function ProfileScreen() {
   const [shortsCount, setShortsCount] = useState(0);
   const [orderCount, setOrderCount] = useState(0);
   const [savedCount, setSavedCount] = useState(0);
+  const [salesCount, setSalesCount] = useState(0);
   const [, setLoading] = useState(true);
 
   // Edit profile state
@@ -118,6 +120,14 @@ export default function ProfileScreen() {
         .select("id", { count: "exact", head: true })
         .eq("user_id", authUser.id);
       setSavedCount(spc ?? 0);
+
+      // Check sales count via backend API (bypasses RLS)
+      try {
+        const sales = await shippingService.fetchSales(authUser.id);
+        setSalesCount(sales.length);
+      } catch {
+        setSalesCount(0);
+      }
     } catch (error) {
       console.error("Error loading profile:", error);
       // Fallback to basic user info
@@ -424,6 +434,16 @@ export default function ProfileScreen() {
                 }
                 theme={theme}
                 badge={shortsCount}
+              />
+              <View
+                style={[styles.menuDivider, { backgroundColor: theme.border }]}
+              />
+              <MenuItem
+                icon="dollar-sign"
+                label="My Sales"
+                onPress={() => navigation.navigate("Sales")}
+                theme={theme}
+                badge={salesCount}
               />
             </>
           )}

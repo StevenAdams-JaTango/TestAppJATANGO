@@ -1,5 +1,6 @@
 import React from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Pressable, View } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import MainTabNavigator from "@/navigation/MainTabNavigator";
@@ -21,6 +22,9 @@ import OrderDetailScreen from "@/screens/OrderDetailScreen";
 import UploadShortScreen from "@/screens/UploadShortScreen";
 import StoreShortsScreen from "@/screens/StoreShortsScreen";
 import SavedProductsScreen from "@/screens/SavedProductsScreen";
+import StoreAddressScreen from "@/screens/StoreAddressScreen";
+import SalesScreen from "@/screens/SalesScreen";
+import SaleDetailScreen from "@/screens/SaleDetailScreen";
 import AuthScreen from "@/screens/AuthScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
@@ -47,6 +51,9 @@ export type RootStackParamList = {
   UploadShort: undefined;
   StoreShortsViewer: { sellerId: string; initialIndex?: number };
   SavedProducts: undefined;
+  StoreAddress: undefined;
+  Sales: undefined;
+  SaleDetail: { orderId: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -108,11 +115,19 @@ export default function RootStackNavigator() {
           <Stack.Screen
             name="Settings"
             component={SettingsScreen}
-            options={{
+            options={({ navigation: nav }) => ({
               headerTitle: "Settings",
               headerBackVisible: true,
               headerBackTitle: "Back",
-            }}
+              headerLeft: () => (
+                <Pressable
+                  onPress={() => nav.goBack()}
+                  style={{ padding: 8, marginRight: 8 }}
+                >
+                  <Feather name="arrow-left" size={24} color={theme.text} />
+                </Pressable>
+              ),
+            })}
           />
           <Stack.Screen
             name="EndedShow"
@@ -224,6 +239,27 @@ export default function RootStackNavigator() {
               headerTitle: "Saved Products",
               headerBackVisible: true,
               headerBackTitle: "Back",
+            }}
+          />
+          <Stack.Screen
+            name="StoreAddress"
+            component={StoreAddressScreen}
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="Sales"
+            component={SalesScreen}
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="SaleDetail"
+            component={SaleDetailScreen}
+            options={{
+              headerShown: false,
             }}
           />
         </>

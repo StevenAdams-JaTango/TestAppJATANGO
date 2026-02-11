@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "node:http";
 import { registerStreamingRoutes } from "./streaming";
 import { registerPaymentRoutes } from "./payments";
+import { registerShippingRoutes } from "./shipping";
 import { registerShowRoutes } from "./shows";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -10,6 +11,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Register Stripe payment routes
   registerPaymentRoutes(app);
+
+  // Register shipping & sales routes
+  registerShippingRoutes(app);
 
   // Register live show cart/sales routes
   registerShowRoutes(app);

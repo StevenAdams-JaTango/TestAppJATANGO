@@ -75,6 +75,7 @@ export const checkoutService = {
     cart: Cart,
     userId: string,
     email?: string,
+    shippingCost?: number,
   ): Promise<CreatePaymentIntentResponse> {
     const items = cartToPayload(cart);
     const baseUrl = getApiUrl();
@@ -83,7 +84,7 @@ export const checkoutService = {
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items, userId, email }),
+      body: JSON.stringify({ items, userId, email, shippingCost }),
     });
 
     if (!res.ok) {
@@ -102,6 +103,9 @@ export const checkoutService = {
     cart: Cart,
     userId: string,
     shippingAddress?: Record<string, any>,
+    shippingCost?: number,
+    shippingCarrier?: string,
+    shippingServiceName?: string,
   ): Promise<ConfirmOrderResponse> {
     const items = cartToPayload(cart);
     const baseUrl = getApiUrl();
@@ -110,7 +114,15 @@ export const checkoutService = {
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ paymentIntentId, userId, items, shippingAddress }),
+      body: JSON.stringify({
+        paymentIntentId,
+        userId,
+        items,
+        shippingAddress,
+        shippingCost,
+        shippingCarrier,
+        shippingService: shippingServiceName,
+      }),
     });
 
     if (!res.ok) {
@@ -132,6 +144,9 @@ export const checkoutService = {
     paymentMethodId: string,
     email?: string,
     shippingAddress?: Record<string, any>,
+    shippingCost?: number,
+    shippingCarrier?: string,
+    shippingServiceName?: string,
   ): Promise<ConfirmOrderResponse & { paymentIntentId: string }> {
     const items = cartToPayload(cart);
     const baseUrl = getApiUrl();
@@ -146,6 +161,9 @@ export const checkoutService = {
         email,
         paymentMethodId,
         shippingAddress,
+        shippingCost,
+        shippingCarrier,
+        shippingService: shippingServiceName,
       }),
     });
 
@@ -184,6 +202,12 @@ export const checkoutService = {
       paymentCard: o.payment_card || null,
       sellerNames: o.seller_names || {},
       shippingAddress: o.shipping_address || null,
+      shippingCost: o.shipping_cost ? parseFloat(o.shipping_cost) : undefined,
+      shippingCarrier: o.shipping_carrier || undefined,
+      shippingService: o.shipping_service || undefined,
+      trackingNumber: o.tracking_number || undefined,
+      labelUrl: o.label_url || undefined,
+      sellerId: o.seller_id || undefined,
       items: (o.order_items || []).map((i: any) => ({
         id: i.id,
         orderId: i.order_id,

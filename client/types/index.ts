@@ -165,6 +165,12 @@ export interface Order {
     country: string;
     phone?: string;
   } | null;
+  shippingCost?: number;
+  shippingCarrier?: string;
+  shippingService?: string;
+  trackingNumber?: string;
+  labelUrl?: string;
+  sellerId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -234,4 +240,54 @@ export interface ShortProgress {
   userId: string;
   lastShortId: string | null;
   updatedAt: string;
+}
+
+export interface ShippingRate {
+  rateId: string;
+  carrier: string;
+  service: string;
+  serviceName: string;
+  amount: number;
+  currency: string;
+  estimatedDays: number;
+  shippoShipmentId: string;
+}
+
+export interface StoreAddress {
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  phone?: string;
+}
+
+export interface Sale {
+  id: string;
+  userId: string;
+  buyerName?: string;
+  status: Order["status"];
+  totalAmount: number;
+  shippingCost?: number;
+  shippingCarrier?: string;
+  shippingService?: string;
+  trackingNumber?: string;
+  labelUrl?: string;
+  shippingAddress?: Order["shippingAddress"];
+  items: OrderItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SavedPackage {
+  id: string;
+  sellerId: string;
+  name: string;
+  packageType: string;
+  length: string;
+  width: string;
+  height: string;
+  weight?: string;
+  isDefault?: boolean;
 }

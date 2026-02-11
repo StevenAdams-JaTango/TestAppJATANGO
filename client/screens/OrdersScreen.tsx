@@ -5,6 +5,7 @@ import {
   FlatList,
   Pressable,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -18,7 +19,8 @@ import { OrderCard } from "@/components/OrderCard";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { checkoutService } from "@/services/checkout";
-import { Spacing } from "@/constants/theme";
+import { shippingService } from "@/services/shipping";
+import { Spacing, BorderRadius } from "@/constants/theme";
 import { Order } from "@/types";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -33,6 +35,7 @@ export default function OrdersScreen() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const loadOrders = useCallback(
     async (showRefresh = false) => {
@@ -111,7 +114,50 @@ export default function OrdersScreen() {
           <Feather name="arrow-left" size={24} color={theme.text} />
         </Pressable>
         <ThemedText style={styles.headerTitle}>My Orders</ThemedText>
-        <View style={styles.headerSpacer} />
+        {orders.length > 0 ? (
+          <Pressable
+            style={styles.deleteAllButton}
+            onPress={() => {
+              Alert.alert(
+                "Delete All Orders",
+                "This will permanently delete all your orders. This cannot be undone.",
+                [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Delete All",
+                    style: "destructive",
+                    onPress: async () => {
+                      if (!user?.id) return;
+                      setIsDeleting(true);
+                      try {
+                        await shippingService.deleteAllOrders(user.id);
+                        setOrders([]);
+                        Haptics.notificationAsync(
+                          Haptics.NotificationFeedbackType.Success,
+                        );
+                      } catch (err: any) {
+                        Alert.alert(
+                          "Error",
+                          err.message || "Failed to delete orders",
+                        );
+                      } finally {
+                        setIsDeleting(false);
+                      }
+                    },
+                  },
+                ],
+              );
+            }}
+          >
+            {isDeleting ? (
+              <ActivityIndicator size="small" color="#ef4444" />
+            ) : (
+              <Feather name="trash-2" size={20} color="#ef4444" />
+            )}
+          </Pressable>
+        ) : (
+          <View style={styles.headerSpacer} />
+        )}
       </View>
 
       {orders.length === 0 ? (
@@ -172,6 +218,13 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 40,
+  },
+  deleteAllButton: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: BorderRadius.sm,
   },
   centered: {
     flex: 1,

@@ -350,6 +350,46 @@ export default function OrderDetailScreen() {
           </>
         )}
 
+        {/* Tracking Info */}
+        {order.trackingNumber && (
+          <>
+            <ThemedText style={styles.sectionTitle}>Tracking</ThemedText>
+            <View
+              style={[
+                styles.card,
+                {
+                  backgroundColor: theme.backgroundRoot,
+                  borderColor: theme.border,
+                },
+              ]}
+            >
+              <View style={styles.infoRow}>
+                <ThemedText
+                  style={[styles.infoLabel, { color: theme.textSecondary }]}
+                >
+                  Carrier
+                </ThemedText>
+                <ThemedText style={styles.infoValue}>
+                  {order.shippingCarrier?.toUpperCase() || "USPS"}
+                </ThemedText>
+              </View>
+              <View
+                style={[styles.divider, { backgroundColor: theme.border }]}
+              />
+              <View style={styles.infoRow}>
+                <ThemedText
+                  style={[styles.infoLabel, { color: theme.textSecondary }]}
+                >
+                  Tracking #
+                </ThemedText>
+                <ThemedText style={styles.infoValue}>
+                  {order.trackingNumber}
+                </ThemedText>
+              </View>
+            </View>
+          </>
+        )}
+
         {/* Items */}
         <ThemedText style={styles.sectionTitle}>Items</ThemedText>
         <View
@@ -400,8 +440,12 @@ export default function OrderDetailScreen() {
             >
               Shipping
             </ThemedText>
-            <ThemedText style={[styles.infoValue, { color: theme.success }]}>
-              Free
+            <ThemedText
+              style={[styles.infoValue, { color: theme.textSecondary }]}
+            >
+              {order.shippingCost && order.shippingCost > 0
+                ? `$${order.shippingCost.toFixed(2)}`
+                : "Free"}
             </ThemedText>
           </View>
           <View style={[styles.divider, { backgroundColor: theme.border }]} />

@@ -1,7 +1,9 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import * as Notifications from "expo-notifications";
+import { navigationRef } from "@/navigation/navigationRef";
 
 import MainTabNavigator from "@/navigation/MainTabNavigator";
 import LiveStreamScreen from "@/screens/LiveStreamScreen";
@@ -25,11 +27,11 @@ import SavedProductsScreen from "@/screens/SavedProductsScreen";
 import StoreAddressScreen from "@/screens/StoreAddressScreen";
 import SalesScreen from "@/screens/SalesScreen";
 import SaleDetailScreen from "@/screens/SaleDetailScreen";
+import NotificationsScreen from "@/screens/NotificationsScreen";
 import AuthScreen from "@/screens/AuthScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/hooks/useTheme";
-import { useInAppNotifications } from "@/hooks/useInAppNotifications";
 
 export type RootStackParamList = {
   Auth: undefined;
@@ -55,6 +57,7 @@ export type RootStackParamList = {
   StoreAddress: undefined;
   Sales: undefined;
   SaleDetail: { orderId: string };
+  Notifications: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -63,7 +66,29 @@ export default function RootStackNavigator() {
   const screenOptions = useScreenOptions();
   const { theme } = useTheme();
   const { user, loading } = useAuth();
-  useInAppNotifications();
+
+  // Listen for notification taps and navigate accordingly
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const data = response.notification.request.content.data;
+        console.log("[Notifications] Tapped notification:", data);
+
+        if (data?.type === "new_sale" && data?.orderId) {
+          // Small delay to ensure navigation is ready
+          setTimeout(() => {
+            if (navigationRef.isReady()) {
+              navigationRef.navigate("SaleDetail", {
+                orderId: data.orderId as string,
+              });
+            }
+          }, 500);
+        }
+      },
+    );
+
+    return () => subscription.remove();
+  }, []);
 
   // Show loading screen while checking auth
   if (loading) {
@@ -260,6 +285,13 @@ export default function RootStackNavigator() {
           <Stack.Screen
             name="SaleDetail"
             component={SaleDetailScreen}
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="Notifications"
+            component={NotificationsScreen}
             options={{
               headerShown: false,
             }}

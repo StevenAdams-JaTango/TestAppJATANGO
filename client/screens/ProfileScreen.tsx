@@ -12,7 +12,6 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import {
   useNavigation,
@@ -27,7 +26,9 @@ import * as Haptics from "expo-haptics";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
+import { RingLightAvatar } from "@/components/RingLightAvatar";
 import { useTheme } from "@/hooks/useTheme";
+import { useUnreadNotifications } from "@/hooks/useUnreadNotifications";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { Spacing, BorderRadius, Shadows } from "@/constants/theme";
@@ -54,11 +55,12 @@ interface UserProfile {
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   const { user: authUser, signOut } = useAuth();
   const { totalItems } = useCart();
+  const { unreadCount, refresh: refreshNotifications } =
+    useUnreadNotifications();
   const navigation = useNavigation<NavigationProp>();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [productCount, setProductCount] = useState(0);
@@ -354,7 +356,7 @@ export default function ProfileScreen() {
       contentContainerStyle={[
         styles.content,
         {
-          paddingTop: headerHeight + Spacing.xl,
+          paddingTop: insets.top + 44 + Spacing.xl,
           paddingBottom: tabBarHeight + Spacing.xl,
         },
       ]}
@@ -365,6 +367,7 @@ export default function ProfileScreen() {
           onRefresh={async () => {
             setRefreshing(true);
             await loadProfile();
+            refreshNotifications();
             setRefreshing(false);
           }}
           tintColor={theme.primary}
@@ -376,26 +379,27 @@ export default function ProfileScreen() {
         entering={FadeInDown.delay(100).springify()}
         style={styles.avatarSection}
       >
-        <LinearGradient
-          colors={["#7C3AED", "#9333EA"]}
-          style={styles.avatarBorder}
-        >
-          <View
-            style={[
-              styles.avatarContainer,
-              { backgroundColor: theme.backgroundRoot },
-            ]}
-          >
-            {profile.avatar ? (
-              <Image source={{ uri: profile.avatar }} style={styles.avatar} />
-            ) : (
-              <Image
-                source={require("../../assets/images/avatar-default-1.png")}
-                style={styles.avatar}
-              />
-            )}
+        {profile.isSeller ? (
+          <RingLightAvatar avatar={profile.avatar} />
+        ) : (
+          <View style={styles.avatarBorderPlain}>
+            <View
+              style={[
+                styles.avatarContainer,
+                { backgroundColor: theme.backgroundRoot },
+              ]}
+            >
+              {profile.avatar ? (
+                <Image source={{ uri: profile.avatar }} style={styles.avatar} />
+              ) : (
+                <Image
+                  source={require("../../assets/images/avatar-default-1.png")}
+                  style={styles.avatar}
+                />
+              )}
+            </View>
           </View>
-        </LinearGradient>
+        )}
         <Pressable
           style={[styles.editButton, { backgroundColor: theme.primary }]}
           onPress={openEditModal}
@@ -592,7 +596,13 @@ export default function ProfileScreen() {
           <View
             style={[styles.menuDivider, { backgroundColor: theme.border }]}
           />
-          <MenuItem icon="bell" label="Notifications" theme={theme} />
+          <MenuItem
+            icon="bell"
+            label="Notifications"
+            onPress={() => navigation.navigate("Notifications")}
+            theme={theme}
+            badge={unreadCount}
+          />
           <View
             style={[styles.menuDivider, { backgroundColor: theme.border }]}
           />
@@ -768,6 +778,14 @@ const styles = StyleSheet.create({
     borderRadius: 54,
     padding: 4,
     marginBottom: Spacing.md,
+  },
+  avatarBorderPlain: {
+    width: 108,
+    height: 108,
+    borderRadius: 54,
+    padding: 4,
+    marginBottom: Spacing.md,
+    backgroundColor: "#7C3AED",
   },
   avatarContainer: {
     width: 100,

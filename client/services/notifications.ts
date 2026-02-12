@@ -57,8 +57,8 @@ export async function registerForPushNotifications(
   }
 
   // Get the Expo push token — requires FCM (google-services.json) on Android.
-  // If FCM isn't configured, we skip push and rely on in-app notifications
-  // via Supabase Realtime (useInAppNotifications hook).
+  // If FCM isn't configured, we skip push and rely on in-app polling
+  // (useInAppNotifications hook).
   try {
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
     const tokenData = await Notifications.getExpoPushTokenAsync({

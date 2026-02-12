@@ -52,3 +52,4 @@ node_modules/
 dist/
 node_modules/
 .cache/
+build/jatango-dev.apk

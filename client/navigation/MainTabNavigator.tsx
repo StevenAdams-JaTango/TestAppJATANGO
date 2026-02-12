@@ -11,6 +11,7 @@ import ShortsStackNavigator from "@/navigation/ShortsStackNavigator";
 import ShowsStackNavigator from "@/navigation/ShowsStackNavigator";
 import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
 import { useTheme } from "@/hooks/useTheme";
+import { useUnreadNotifications } from "@/hooks/useUnreadNotifications";
 
 export type MainTabParamList = {
   HomeTab: undefined;
@@ -25,6 +26,7 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 export default function MainTabNavigator() {
   const { theme, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { unreadCount } = useUnreadNotifications();
 
   return (
     <Tab.Navigator
@@ -116,6 +118,15 @@ export default function MainTabNavigator() {
           tabBarIcon: ({ color, size }) => (
             <Feather name="user" size={size} color={color} />
           ),
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: "#ef4444",
+            fontSize: 10,
+            fontWeight: "700",
+            minWidth: 18,
+            height: 18,
+            lineHeight: 14,
+          },
         }}
       />
     </Tab.Navigator>

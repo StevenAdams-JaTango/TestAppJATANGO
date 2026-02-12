@@ -4,6 +4,7 @@ import { registerStreamingRoutes } from "./streaming";
 import { registerPaymentRoutes } from "./payments";
 import { registerShippingRoutes } from "./shipping";
 import { registerShowRoutes } from "./shows";
+import { registerNotificationRoutes } from "./notifications";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Register streaming routes for LiveKit
@@ -17,6 +18,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Register live show cart/sales routes
   registerShowRoutes(app);
+
+  // Register SSE notification routes
+  registerNotificationRoutes(app);
 
   const httpServer = createServer(app);
 

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "290119546206",
+    "project_id": "jatangotest-1e482",
+    "storage_bucket": "jatangotest-1e482.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:290119546206:android:eeb1330196aa87e43d8bcf",
+        "android_client_info": {
+          "package_name": "com.jatango.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBmO4U_pbuf89CqSaDraWmDSSXqlGYDW4k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

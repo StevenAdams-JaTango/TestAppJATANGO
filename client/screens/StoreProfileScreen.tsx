@@ -26,6 +26,7 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { CartIcon } from "@/components/CartIcon";
 import { ProductDetailSheet } from "@/components/ProductDetailSheet";
+import { RingLightAvatar } from "@/components/RingLightAvatar";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing } from "@/constants/theme";
@@ -259,21 +260,8 @@ export default function StoreProfileScreen() {
         style={styles.heroGradient}
       >
         <View style={styles.heroContent}>
-          {/* Avatar with ring */}
-          <View style={styles.avatarRing}>
-            <View style={styles.avatarInner}>
-              {store?.avatar_url ? (
-                <Image
-                  source={{ uri: store.avatar_url }}
-                  style={styles.avatar}
-                />
-              ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Feather name="user" size={36} color="#C4B5FD" />
-                </View>
-              )}
-            </View>
-          </View>
+          {/* Avatar with ring light */}
+          <RingLightAvatar avatar={store?.avatar_url ?? null} size={96} />
 
           <ThemedText style={styles.storeName}>
             {store?.store_name || store?.name || "Store"}

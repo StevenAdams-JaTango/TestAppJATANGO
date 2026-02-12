@@ -29,33 +29,37 @@ async function notifySellerOfSale(
   sellerId: string,
   totalAmount: number,
   itemCount: number,
+  orderId: string,
 ) {
   console.log(
     `[Notifications] Attempting to notify seller ${sellerId} of sale: ${itemCount} items, $${totalAmount.toFixed(2)}`,
   );
 
   try {
-    // 1. Insert an in-app notification row (works for emulators + web + real devices)
+    const title = "New Sale! 🎉";
+    const body = `You just sold ${itemCount} item${itemCount !== 1 ? "s" : ""} for $${totalAmount.toFixed(2)}`;
+
+    // 1. Insert notification row for web/history
     const { error: notifError } = await supabase.from("notifications").insert({
       user_id: sellerId,
       type: "new_sale",
-      title: "New Sale! 🎉",
-      body: `You just sold ${itemCount} item${itemCount !== 1 ? "s" : ""} for $${totalAmount.toFixed(2)}`,
-      data: { totalAmount, itemCount },
+      title,
+      body,
+      data: { totalAmount, itemCount, orderId },
     });
 
     if (notifError) {
       console.warn(
-        `[Notifications] Failed to insert in-app notification:`,
+        `[Notifications] Failed to insert notification:`,
         notifError.message,
       );
     } else {
       console.log(
-        `[Notifications] In-app notification inserted for seller ${sellerId}`,
+        `[Notifications] Notification row inserted for seller ${sellerId}`,
       );
     }
 
-    // 2. Also send push notification if token exists
+    // 2. Send push notification if token exists
     const { data: sellerProfile } = await supabase
       .from("profiles")
       .select("push_token, name")
@@ -64,7 +68,7 @@ async function notifySellerOfSale(
 
     if (!sellerProfile?.push_token) {
       console.log(
-        `[Notifications] No push token for seller ${sellerId}, skipping push (in-app still sent)`,
+        `[Notifications] No push token for seller ${sellerId}, skipping push`,
       );
       return;
     }
@@ -72,9 +76,9 @@ async function notifySellerOfSale(
     const message = {
       to: sellerProfile.push_token,
       sound: "default",
-      title: "New Sale! 🎉",
-      body: `You just sold ${itemCount} item${itemCount !== 1 ? "s" : ""} for $${totalAmount.toFixed(2)}`,
-      data: { type: "new_sale" },
+      title,
+      body,
+      data: { type: "new_sale", orderId },
       channelId: "sales",
     };
 
@@ -409,7 +413,7 @@ export function registerPaymentRoutes(app: Express) {
       const sellerId = items[0]?.sellerId;
       if (sellerId) {
         const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
-        notifySellerOfSale(sellerId, totalAmount, itemCount);
+        notifySellerOfSale(sellerId, totalAmount, itemCount, order.id);
       }
 
       return res.json({
@@ -602,7 +606,12 @@ export function registerPaymentRoutes(app: Express) {
         const savedCardSellerId = items[0]?.sellerId;
         if (savedCardSellerId) {
           const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
-          notifySellerOfSale(savedCardSellerId, totalAmount, itemCount);
+          notifySellerOfSale(
+            savedCardSellerId,
+            totalAmount,
+            itemCount,
+            order.id,
+          );
         }
 
         return res.json({

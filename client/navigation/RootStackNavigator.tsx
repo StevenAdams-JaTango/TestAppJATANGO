@@ -29,6 +29,7 @@ import AuthScreen from "@/screens/AuthScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/hooks/useTheme";
+import { useInAppNotifications } from "@/hooks/useInAppNotifications";
 
 export type RootStackParamList = {
   Auth: undefined;
@@ -62,6 +63,7 @@ export default function RootStackNavigator() {
   const screenOptions = useScreenOptions();
   const { theme } = useTheme();
   const { user, loading } = useAuth();
+  useInAppNotifications();
 
   // Show loading screen while checking auth
   if (loading) {

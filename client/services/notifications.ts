@@ -46,25 +46,7 @@ export async function registerForPushNotifications(
     return null;
   }
 
-  // Get the Expo push token
-  const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-  const tokenData = await Notifications.getExpoPushTokenAsync({
-    projectId,
-  });
-  const pushToken = tokenData.data;
-  console.log("[Notifications] Push token:", pushToken);
-
-  // Save token to the user's profile in Supabase
-  const { error } = await supabase
-    .from("profiles")
-    .update({ push_token: pushToken })
-    .eq("id", userId);
-
-  if (error) {
-    console.error("[Notifications] Failed to save push token:", error);
-  }
-
-  // Android needs a notification channel
+  // Android needs a notification channel (set up even if push token fails)
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("sales", {
       name: "Sales",
@@ -74,5 +56,35 @@ export async function registerForPushNotifications(
     });
   }
 
-  return pushToken;
+  // Get the Expo push token — requires FCM (google-services.json) on Android.
+  // If FCM isn't configured, we skip push and rely on in-app notifications
+  // via Supabase Realtime (useInAppNotifications hook).
+  try {
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+    const tokenData = await Notifications.getExpoPushTokenAsync({
+      projectId,
+    });
+    const pushToken = tokenData.data;
+    console.log("[Notifications] Push token:", pushToken);
+
+    // Save token to the user's profile in Supabase
+    const { error } = await supabase
+      .from("profiles")
+      .update({ push_token: pushToken })
+      .eq("id", userId);
+
+    if (error) {
+      console.error("[Notifications] Failed to save push token:", error);
+    }
+
+    return pushToken;
+  } catch {
+    // FCM not configured — this is expected if google-services.json is missing.
+    // In-app notifications via Supabase Realtime will still work.
+    console.log(
+      "[Notifications] Push token unavailable (FCM not configured). " +
+        "In-app notifications via Supabase Realtime are active.",
+    );
+    return null;
+  }
 }

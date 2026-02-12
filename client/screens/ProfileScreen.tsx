@@ -197,6 +197,24 @@ export default function ProfileScreen() {
           }
         },
       )
+      // Order items where this user is the seller (backup trigger for sales)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "order_items",
+          filter: `seller_id=eq.${authUser.id}`,
+        },
+        async () => {
+          try {
+            const sales = await shippingService.fetchSales(authUser.id);
+            setSalesCount(sales.length);
+          } catch {
+            // ignore
+          }
+        },
+      )
       .on(
         "postgres_changes",
         {

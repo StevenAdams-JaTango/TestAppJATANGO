@@ -30,7 +30,32 @@ async function notifySellerOfSale(
   totalAmount: number,
   itemCount: number,
 ) {
+  console.log(
+    `[Notifications] Attempting to notify seller ${sellerId} of sale: ${itemCount} items, $${totalAmount.toFixed(2)}`,
+  );
+
   try {
+    // 1. Insert an in-app notification row (works for emulators + web + real devices)
+    const { error: notifError } = await supabase.from("notifications").insert({
+      user_id: sellerId,
+      type: "new_sale",
+      title: "New Sale! 🎉",
+      body: `You just sold ${itemCount} item${itemCount !== 1 ? "s" : ""} for $${totalAmount.toFixed(2)}`,
+      data: { totalAmount, itemCount },
+    });
+
+    if (notifError) {
+      console.warn(
+        `[Notifications] Failed to insert in-app notification:`,
+        notifError.message,
+      );
+    } else {
+      console.log(
+        `[Notifications] In-app notification inserted for seller ${sellerId}`,
+      );
+    }
+
+    // 2. Also send push notification if token exists
     const { data: sellerProfile } = await supabase
       .from("profiles")
       .select("push_token, name")
@@ -39,7 +64,7 @@ async function notifySellerOfSale(
 
     if (!sellerProfile?.push_token) {
       console.log(
-        `[Notifications] No push token for seller ${sellerId}, skipping`,
+        `[Notifications] No push token for seller ${sellerId}, skipping push (in-app still sent)`,
       );
       return;
     }

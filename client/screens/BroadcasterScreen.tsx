@@ -36,6 +36,7 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { Product } from "@/types";
 import { useStreaming } from "@/hooks/useStreaming";
 import { useLiveChat } from "@/hooks/useLiveChat";
+import { useVoiceAgent } from "@/hooks/useVoiceAgent";
 import { showsService } from "@/services/shows";
 import { streamingService } from "@/services/streaming";
 import { useAuth } from "@/contexts/AuthContext";
@@ -343,6 +344,34 @@ export default function BroadcasterScreen() {
     },
     [streaming.room],
   );
+
+  // Voice agent for product creation
+  const handleVoiceProductCreated = useCallback(
+    async (product: Product) => {
+      setCarouselProducts((prev) => {
+        const updated = [...prev, product];
+        setSelectedProductIds((ids) => [...ids, product.id]);
+        return updated;
+      });
+      setShowCarousel(true);
+
+      const products = await productsService.listProducts();
+      setUserProducts(products);
+
+      setTimeout(() => {
+        broadcastCarouselUpdate();
+      }, 200);
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Product Added", `"${product.name}" was added to your show.`);
+    },
+    [broadcastCarouselUpdate],
+  );
+
+  const voiceAgent = useVoiceAgent({
+    room: streaming.room,
+    onProductCreated: handleVoiceProductCreated,
+  });
 
   // Respond to viewer state requests. This is the most reliable way to support late joiners.
   useEffect(() => {
@@ -718,6 +747,33 @@ export default function BroadcasterScreen() {
           >
             <Feather name="sun" size={22} color="#FFFFFF" />
           </Pressable>
+          {isLive ? (
+            <Pressable
+              style={[
+                styles.controlButton,
+                voiceAgent.isAgentActive && styles.controlButtonActive,
+              ]}
+              onPress={() => {
+                if (!voiceAgent.isAgentActive && !voiceAgent.isDispatching) {
+                  voiceAgent.dispatchAgent(roomNameRef.current);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                }
+              }}
+            >
+              {voiceAgent.isDispatching ? (
+                <Feather name="loader" size={22} color="#FF6B35" />
+              ) : (
+                <Feather
+                  name="mic"
+                  size={22}
+                  color={voiceAgent.isAgentActive ? "#FF6B35" : "#FFFFFF"}
+                />
+              )}
+              {voiceAgent.isAgentActive ? (
+                <View style={styles.agentDot} />
+              ) : null}
+            </Pressable>
+          ) : null}
         </View>
 
         {isLive ? (
@@ -1020,6 +1076,20 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.4)",
     alignItems: "center",
     justifyContent: "center",
+  },
+  controlButtonActive: {
+    backgroundColor: "rgba(255,107,53,0.25)",
+    borderWidth: 1.5,
+    borderColor: "#FF6B35",
+  },
+  agentDot: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#FF6B35",
   },
   bottomSection: {
     position: "absolute",

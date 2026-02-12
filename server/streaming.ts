@@ -1,5 +1,9 @@
 import type { Express, Request, Response } from "express";
-import { AccessToken, RoomServiceClient } from "livekit-server-sdk";
+import {
+  AccessToken,
+  RoomServiceClient,
+  AgentDispatchClient,
+} from "livekit-server-sdk";
 import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
@@ -12,9 +16,15 @@ const LIVEKIT_WS_URL = process.env.LIVEKIT_URL;
 const LIVEKIT_API_URL = LIVEKIT_WS_URL?.replace("wss://", "https://");
 
 let roomService: RoomServiceClient | null = null;
+let agentDispatchClient: AgentDispatchClient | null = null;
 if (LIVEKIT_API_URL && LIVEKIT_API_KEY && LIVEKIT_API_SECRET) {
   roomService = new RoomServiceClient(
     LIVEKIT_API_URL,
+    LIVEKIT_API_KEY,
+    LIVEKIT_API_SECRET,
+  );
+  agentDispatchClient = new AgentDispatchClient(
+    LIVEKIT_WS_URL!,
     LIVEKIT_API_KEY,
     LIVEKIT_API_SECRET,
   );
@@ -220,6 +230,53 @@ export function registerStreamingRoutes(app: Express) {
       } catch (error) {
         console.error("Error updating room metadata:", error);
         res.status(500).json({ error: "Failed to update room metadata" });
+      }
+    },
+  );
+
+  // Dispatch a voice agent to a room
+  app.post(
+    "/api/streaming/dispatch-agent",
+    async (req: Request, res: Response) => {
+      try {
+        const { roomName, metadata } = req.body as {
+          roomName: string;
+          metadata?: string;
+        };
+
+        if (!roomName) {
+          res.status(400).json({ error: "roomName is required" });
+          return;
+        }
+
+        if (!agentDispatchClient) {
+          res
+            .status(500)
+            .json({ error: "Agent dispatch client not configured" });
+          return;
+        }
+
+        console.log(`[Streaming] Dispatching voice agent to room: ${roomName}`);
+
+        const dispatch = await agentDispatchClient.createDispatch(
+          roomName,
+          "jatango-voice-agent",
+          { metadata: metadata || "{}" },
+        );
+
+        console.log(`[Streaming] Agent dispatched: ${dispatch.id}`);
+
+        res.json({
+          success: true,
+          dispatchId: dispatch.id,
+          agentName: "jatango-voice-agent",
+        });
+      } catch (error) {
+        console.error("Error dispatching agent:", error);
+        res.status(500).json({
+          error: "Failed to dispatch agent",
+          details: error instanceof Error ? error.message : String(error),
+        });
       }
     },
   );

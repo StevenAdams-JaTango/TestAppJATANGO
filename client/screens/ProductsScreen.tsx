@@ -1,10 +1,12 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
   View,
   StyleSheet,
   FlatList,
   RefreshControl,
   Pressable,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,10 +19,13 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ProductCard } from "@/components/ProductCard";
 import { CartIcon } from "@/components/CartIcon";
 import { useTheme } from "@/hooks/useTheme";
+import { useAuth } from "@/contexts/AuthContext";
 import { BorderRadius, Spacing } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { Product } from "@/types";
 import { productsService } from "@/services/products";
+import { streamingService } from "@/services/streaming";
+import { getApiUrl } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -28,11 +33,14 @@ export default function ProductsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
+  const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [isVoiceActive, setIsVoiceActive] = useState(false);
+  const voiceRoomRef = useRef<string | null>(null);
 
   const loadProducts = useCallback(async () => {
     try {
@@ -175,6 +183,73 @@ export default function ProductsScreen() {
         }
       />
 
+      {/* Voice Add FAB */}
+      <Pressable
+        style={[
+          styles.voiceFab,
+          {
+            backgroundColor: isVoiceActive ? "#EF4444" : theme.secondary,
+            bottom: insets.bottom + 24,
+          },
+        ]}
+        onPress={async () => {
+          if (isVoiceActive) {
+            // Stop voice session
+            await streamingService.disconnect();
+            setIsVoiceActive(false);
+            voiceRoomRef.current = null;
+            loadProducts();
+            return;
+          }
+
+          if (!user?.id) return;
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          setIsVoiceActive(true);
+
+          try {
+            const roomName = `jatango-voice-${user.id}-${Date.now()}`;
+            voiceRoomRef.current = roomName;
+
+            const { token, wsUrl } = await streamingService.getToken({
+              roomName,
+              participantName: user.id,
+              isHost: true,
+            });
+
+            const room = await streamingService.connect(token, wsUrl);
+            await room.localParticipant.setMicrophoneEnabled(true);
+
+            const apiUrl = getApiUrl().replace(/\/$/, "");
+            await fetch(`${apiUrl}/api/streaming/dispatch-agent`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ roomName }),
+            });
+          } catch (err: any) {
+            console.error("[ProductsScreen] Voice agent error:", err);
+            Alert.alert(
+              "Voice Error",
+              err.message || "Failed to start voice assistant",
+            );
+            setIsVoiceActive(false);
+            voiceRoomRef.current = null;
+            await streamingService.disconnect();
+          }
+        }}
+      >
+        {isVoiceActive ? (
+          <View style={styles.voiceFabContent}>
+            <ActivityIndicator size="small" color="#FFFFFF" />
+            <ThemedText style={styles.voiceFabText}>Listening...</ThemedText>
+          </View>
+        ) : (
+          <View style={styles.voiceFabContent}>
+            <Feather name="mic" size={20} color="#FFFFFF" />
+            <ThemedText style={styles.voiceFabText}>Voice Add</ThemedText>
+          </View>
+        )}
+      </Pressable>
+
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         visible={showDeleteDialog}
@@ -267,5 +342,29 @@ const styles = StyleSheet.create({
   emptyBtnText: {
     fontSize: 15,
     fontWeight: "700",
+  },
+  voiceFab: {
+    position: "absolute",
+    right: Spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.full,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  voiceFabContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  voiceFabText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
 });

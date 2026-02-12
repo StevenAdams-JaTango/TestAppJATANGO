@@ -40,6 +40,7 @@ export interface DbColorVariant {
   width?: number;
   height?: number;
   dimensionUnit?: string;
+  isArchived?: boolean;
 }
 
 export interface DbSizeVariant {
@@ -58,6 +59,7 @@ export interface DbSizeVariant {
   width?: number;
   height?: number;
   dimensionUnit?: string;
+  isArchived?: boolean;
 }
 
 export interface DbProductVariant {
@@ -111,6 +113,148 @@ export interface DbProduct {
   seller_id: string;
   created_at: string;
   updated_at: string;
+}
+
+// Normalized table row types
+export interface DbProductColorRow {
+  id: string;
+  product_id: string;
+  client_id?: string;
+  name: string;
+  hex_code?: string;
+  image?: string;
+  price?: number;
+  msrp?: number;
+  cost?: number;
+  stock_quantity?: number;
+  sku?: string;
+  barcode?: string;
+  weight?: number;
+  weight_unit?: string;
+  length?: number;
+  width?: number;
+  height?: number;
+  dimension_unit?: string;
+  is_archived?: boolean;
+  display_order?: number;
+  created_at?: string;
+}
+
+export interface DbProductSizeRow {
+  id: string;
+  product_id: string;
+  client_id?: string;
+  name: string;
+  image?: string;
+  price?: number;
+  msrp?: number;
+  cost?: number;
+  stock_quantity?: number;
+  sku?: string;
+  barcode?: string;
+  weight?: number;
+  weight_unit?: string;
+  length?: number;
+  width?: number;
+  height?: number;
+  dimension_unit?: string;
+  is_archived?: boolean;
+  display_order?: number;
+  created_at?: string;
+}
+
+export interface DbProductVariantRow {
+  id: string;
+  product_id: string;
+  client_id?: string;
+  color_id?: string;
+  color_name?: string;
+  size_id?: string;
+  size_name?: string;
+  sku?: string;
+  barcode?: string;
+  price?: number;
+  msrp?: number;
+  cost?: number;
+  stock_quantity?: number;
+  weight?: number;
+  weight_unit?: string;
+  length?: number;
+  width?: number;
+  height?: number;
+  dimension_unit?: string;
+  image?: string;
+  is_archived?: boolean;
+  display_order?: number;
+  created_at?: string;
+}
+
+// Map normalized DB rows to existing client interfaces
+export function mapColorRow(row: DbProductColorRow): DbColorVariant {
+  return {
+    id: row.client_id || row.id,
+    name: row.name,
+    hexCode: row.hex_code,
+    image: row.image,
+    price: row.price,
+    msrp: row.msrp,
+    cost: row.cost,
+    stockQuantity: row.stock_quantity,
+    sku: row.sku,
+    barcode: row.barcode,
+    weight: row.weight,
+    weightUnit: row.weight_unit,
+    length: row.length,
+    width: row.width,
+    height: row.height,
+    dimensionUnit: row.dimension_unit,
+    isArchived: row.is_archived,
+  };
+}
+
+export function mapSizeRow(row: DbProductSizeRow): DbSizeVariant {
+  return {
+    id: row.client_id || row.id,
+    name: row.name,
+    image: row.image,
+    price: row.price,
+    msrp: row.msrp,
+    cost: row.cost,
+    stockQuantity: row.stock_quantity,
+    sku: row.sku,
+    barcode: row.barcode,
+    weight: row.weight,
+    weightUnit: row.weight_unit,
+    length: row.length,
+    width: row.width,
+    height: row.height,
+    dimensionUnit: row.dimension_unit,
+    isArchived: row.is_archived,
+  };
+}
+
+export function mapVariantRow(row: DbProductVariantRow): DbProductVariant {
+  return {
+    id: row.client_id || row.id,
+    colorId: row.color_id,
+    colorName: row.color_name,
+    sizeId: row.size_id,
+    sizeName: row.size_name,
+    sku: row.sku,
+    barcode: row.barcode,
+    price: row.price,
+    msrp: row.msrp,
+    cost: row.cost,
+    stockQuantity: row.stock_quantity,
+    weight: row.weight,
+    weightUnit: row.weight_unit,
+    length: row.length,
+    width: row.width,
+    height: row.height,
+    dimensionUnit: row.dimension_unit,
+    image: row.image,
+    isArchived: row.is_archived,
+  };
 }
 
 export interface DbShow {

@@ -1,4 +1,12 @@
-import { supabase, DbProduct } from "@/lib/supabase";
+import {
+  supabase,
+  DbProductColorRow,
+  DbProductSizeRow,
+  DbProductVariantRow,
+  mapColorRow,
+  mapSizeRow,
+  mapVariantRow,
+} from "@/lib/supabase";
 import { getApiUrl } from "@/lib/query-client";
 import { Product, ColorVariant, SizeVariant, ProductVariant } from "@/types";
 
@@ -29,8 +37,51 @@ export interface ProductInput {
   taxCategory?: string;
 }
 
-// Convert database row to Product type
-function dbToProduct(row: DbProduct): Product {
+// The SELECT string for product queries with normalized joins
+const PRODUCT_SELECT = `
+  *,
+  product_colors(*),
+  product_sizes(*),
+  product_variants(*)
+`;
+
+const PRODUCT_SELECT_WITH_SELLER = `
+  *,
+  product_colors(*),
+  product_sizes(*),
+  product_variants(*),
+  profiles:seller_id (
+    name,
+    avatar_url
+  )
+`;
+
+// Convert database row (with joined normalized tables) to Product type
+function dbToProduct(row: any): Product {
+  // Map normalized rows to client interfaces (fallback to JSONB for backward compat)
+  const colorRows: DbProductColorRow[] = row.product_colors || [];
+  const sizeRows: DbProductSizeRow[] = row.product_sizes || [];
+  const variantRows: DbProductVariantRow[] = row.product_variants || [];
+
+  const colors: ColorVariant[] =
+    colorRows.length > 0
+      ? colorRows
+          .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+          .map(mapColorRow)
+      : row.colors || [];
+  const sizes: SizeVariant[] =
+    sizeRows.length > 0
+      ? sizeRows
+          .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+          .map(mapSizeRow)
+      : row.sizes || [];
+  const variants: ProductVariant[] =
+    variantRows.length > 0
+      ? variantRows
+          .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+          .map(mapVariantRow)
+      : row.variants || [];
+
   return {
     id: row.id,
     name: row.name,
@@ -52,20 +103,20 @@ function dbToProduct(row: DbProduct): Product {
     dimensionUnit: row.dimension_unit,
     barcode: row.barcode,
     sku: row.sku,
-    colors: row.colors || [],
-    sizes: row.sizes || [],
-    variants: row.variants || [],
+    colors,
+    sizes,
+    variants,
     shippingProfile: row.shipping_profile,
     taxCategory: row.tax_category,
     sellerId: row.seller_id,
-    sellerName: "Store", // Will be populated from profiles join
+    sellerName: "Store",
     sellerAvatar: null,
     createdAt: new Date(row.created_at).getTime(),
     updatedAt: new Date(row.updated_at).getTime(),
   };
 }
 
-// Convert ProductInput to database format
+// Convert ProductInput to database format (no longer writes JSONB variant columns)
 function inputToDb(input: ProductInput, sellerId: string) {
   return {
     name: input.name,
@@ -96,6 +147,108 @@ function inputToDb(input: ProductInput, sellerId: string) {
   };
 }
 
+// Upsert colors, sizes, and variants into normalized tables for a product
+async function upsertNormalizedVariants(
+  productId: string,
+  colors?: ColorVariant[],
+  sizes?: SizeVariant[],
+  variants?: ProductVariant[],
+) {
+  // Delete existing rows and re-insert (simple replace strategy)
+  if (colors !== undefined) {
+    await supabase.from("product_colors").delete().eq("product_id", productId);
+    if (colors.length > 0) {
+      const rows = colors.map((c, idx) => ({
+        product_id: productId,
+        client_id: c.id,
+        name: c.name,
+        hex_code: c.hexCode,
+        image: c.image,
+        price: c.price,
+        msrp: c.msrp,
+        cost: c.cost,
+        stock_quantity: c.stockQuantity ?? 0,
+        sku: c.sku,
+        barcode: c.barcode,
+        weight: c.weight,
+        weight_unit: c.weightUnit,
+        length: c.length,
+        width: c.width,
+        height: c.height,
+        dimension_unit: c.dimensionUnit,
+        is_archived: c.isArchived ?? false,
+        display_order: idx,
+      }));
+      const { error } = await supabase.from("product_colors").insert(rows);
+      if (error)
+        console.error("Error inserting product_colors:", error.message);
+    }
+  }
+
+  if (sizes !== undefined) {
+    await supabase.from("product_sizes").delete().eq("product_id", productId);
+    if (sizes.length > 0) {
+      const rows = sizes.map((s, idx) => ({
+        product_id: productId,
+        client_id: s.id,
+        name: s.name,
+        image: s.image,
+        price: s.price,
+        msrp: s.msrp,
+        cost: s.cost,
+        stock_quantity: s.stockQuantity ?? 0,
+        sku: s.sku,
+        barcode: s.barcode,
+        weight: s.weight,
+        weight_unit: s.weightUnit,
+        length: s.length,
+        width: s.width,
+        height: s.height,
+        dimension_unit: s.dimensionUnit,
+        is_archived: s.isArchived ?? false,
+        display_order: idx,
+      }));
+      const { error } = await supabase.from("product_sizes").insert(rows);
+      if (error) console.error("Error inserting product_sizes:", error.message);
+    }
+  }
+
+  if (variants !== undefined) {
+    await supabase
+      .from("product_variants")
+      .delete()
+      .eq("product_id", productId);
+    if (variants.length > 0) {
+      const rows = variants.map((v, idx) => ({
+        product_id: productId,
+        client_id: v.id,
+        color_id: v.colorId,
+        color_name: v.colorName,
+        size_id: v.sizeId,
+        size_name: v.sizeName,
+        sku: v.sku,
+        barcode: v.barcode,
+        price: v.price,
+        msrp: v.msrp,
+        cost: v.cost,
+        stock_quantity: v.stockQuantity ?? 0,
+        weight: v.weight,
+        weight_unit: v.weightUnit,
+        length: v.length,
+        width: v.width,
+        height: v.height,
+        dimension_unit: v.dimensionUnit,
+        image: v.image,
+        is_archived: v.isArchived ?? false,
+        display_order: idx,
+      }));
+      const { error } = await supabase.from("product_variants").insert(rows);
+      if (error)
+        console.error("Error inserting product_variants:", error.message);
+    }
+  }
+}
+
 class ProductsService {
   // Fetch reserved quantities from the server (items held in live show carts)
   private async fetchReservedQuantities(): Promise<Record<string, number>> {
@@ -117,15 +270,7 @@ class ProductsService {
       const [{ data, error }, reservedQty] = await Promise.all([
         supabase
           .from("products")
-          .select(
-            `
-          *,
-          profiles:seller_id (
-            name,
-            avatar_url
-          )
-        `,
-          )
+          .select(PRODUCT_SELECT_WITH_SELLER)
           .order("created_at", { ascending: false }),
         this.fetchReservedQuantities(),
       ]);
@@ -168,7 +313,7 @@ class ProductsService {
 
       const { data, error } = await supabase
         .from("products")
-        .select("*")
+        .select(PRODUCT_SELECT)
         .eq("seller_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -184,7 +329,7 @@ class ProductsService {
     try {
       const { data, error } = await supabase
         .from("products")
-        .select("*")
+        .select(PRODUCT_SELECT)
         .eq("id", id)
         .single();
 
@@ -209,14 +354,31 @@ class ProductsService {
       const { data, error } = await supabase
         .from("products")
         .insert(inputToDb(input, user.id))
-        .select()
+        .select(PRODUCT_SELECT)
         .single();
 
       if (error) throw error;
-      return data ? dbToProduct(data) : null;
+      if (!data) return null;
+
+      // Write normalized variant rows
+      await upsertNormalizedVariants(
+        data.id,
+        input.colors,
+        input.sizes,
+        input.variants,
+      );
+
+      // Re-fetch to get populated normalized data
+      const { data: fresh } = await supabase
+        .from("products")
+        .select(PRODUCT_SELECT)
+        .eq("id", data.id)
+        .single();
+
+      return fresh ? dbToProduct(fresh) : dbToProduct(data);
     } catch (error) {
       console.error("Error creating product:", error);
-      return null;
+      throw error;
     }
   }
 
@@ -262,11 +424,28 @@ class ProductsService {
         .from("products")
         .update(updateData)
         .eq("id", id)
-        .select()
+        .select(PRODUCT_SELECT)
         .single();
 
       if (error) throw error;
-      return data ? dbToProduct(data) : null;
+      if (!data) return null;
+
+      // Write normalized variant rows
+      await upsertNormalizedVariants(
+        id,
+        input.colors,
+        input.sizes,
+        input.variants,
+      );
+
+      // Re-fetch to get populated normalized data
+      const { data: fresh } = await supabase
+        .from("products")
+        .select(PRODUCT_SELECT)
+        .eq("id", id)
+        .single();
+
+      return fresh ? dbToProduct(fresh) : dbToProduct(data);
     } catch (error) {
       console.error("Error updating product:", error);
       return null;
@@ -289,7 +468,7 @@ class ProductsService {
     try {
       const { data, error } = await supabase
         .from("products")
-        .select("*")
+        .select(PRODUCT_SELECT)
         .or(
           `name.ilike.%${query}%,description.ilike.%${query}%,sku.ilike.%${query}%`,
         )
@@ -307,7 +486,7 @@ class ProductsService {
     try {
       const { data, error } = await supabase
         .from("products")
-        .select("*")
+        .select(PRODUCT_SELECT)
         .eq("category", category)
         .order("created_at", { ascending: false });
 

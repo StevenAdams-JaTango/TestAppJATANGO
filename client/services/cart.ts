@@ -1,4 +1,12 @@
-import { supabase } from "@/lib/supabase";
+import {
+  supabase,
+  DbProductColorRow,
+  DbProductSizeRow,
+  DbProductVariantRow,
+  mapColorRow,
+  mapSizeRow,
+  mapVariantRow,
+} from "@/lib/supabase";
 import { getApiUrl } from "@/lib/query-client";
 import { Cart, CartItem, StoreCart } from "@/types/cart";
 import { Product, ColorVariant, SizeVariant, ProductVariant } from "@/types";
@@ -112,7 +120,10 @@ class CartService {
           *,
           products:product_id (
             id, name, price, image, images, description,
-            quantity_in_stock, colors, sizes, variants, seller_id
+            quantity_in_stock, colors, sizes, variants, seller_id,
+            product_colors(*),
+            product_sizes(*),
+            product_variants(*)
           ),
           profiles:seller_id (
             id, name, avatar_url
@@ -152,7 +163,32 @@ class CartService {
           storeMap.set(sellerId, storeCart);
         }
 
-        // Reconstruct product from DB data
+        // Reconstruct product from DB data (prefer normalized rows, fallback to JSONB)
+        const colorRows: DbProductColorRow[] =
+          item.products.product_colors || [];
+        const sizeRows: DbProductSizeRow[] = item.products.product_sizes || [];
+        const variantRows: DbProductVariantRow[] =
+          item.products.product_variants || [];
+
+        const colors: ColorVariant[] =
+          colorRows.length > 0
+            ? colorRows
+                .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+                .map(mapColorRow)
+            : item.products.colors || [];
+        const sizes: SizeVariant[] =
+          sizeRows.length > 0
+            ? sizeRows
+                .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+                .map(mapSizeRow)
+            : item.products.sizes || [];
+        const variants: ProductVariant[] =
+          variantRows.length > 0
+            ? variantRows
+                .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+                .map(mapVariantRow)
+            : item.products.variants || [];
+
         const product: Product = {
           id: item.products.id,
           name: item.products.name,
@@ -161,9 +197,9 @@ class CartService {
           images: item.products.images,
           description: item.products.description,
           quantityInStock: item.products.quantity_in_stock,
-          colors: item.products.colors || [],
-          sizes: item.products.sizes || [],
-          variants: item.products.variants || [],
+          colors,
+          sizes,
+          variants,
           sellerId: item.products.seller_id,
           sellerName: item.profiles.name || "Unknown Store",
           sellerAvatar: item.profiles.avatar_url,

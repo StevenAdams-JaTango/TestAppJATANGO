@@ -48,6 +48,82 @@ CREATE TABLE IF NOT EXISTS public.products (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Normalized product colors table
+CREATE TABLE IF NOT EXISTS public.product_colors (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  product_id UUID REFERENCES public.products(id) ON DELETE CASCADE NOT NULL,
+  client_id TEXT,
+  name TEXT NOT NULL,
+  hex_code TEXT,
+  image TEXT,
+  price DECIMAL(10,2),
+  msrp DECIMAL(10,2),
+  cost DECIMAL(10,2),
+  stock_quantity INTEGER DEFAULT 0,
+  sku TEXT,
+  barcode TEXT,
+  weight DECIMAL(10,2),
+  weight_unit TEXT,
+  length DECIMAL(10,2),
+  width DECIMAL(10,2),
+  height DECIMAL(10,2),
+  dimension_unit TEXT,
+  is_archived BOOLEAN DEFAULT false,
+  display_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Normalized product sizes table
+CREATE TABLE IF NOT EXISTS public.product_sizes (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  product_id UUID REFERENCES public.products(id) ON DELETE CASCADE NOT NULL,
+  client_id TEXT,
+  name TEXT NOT NULL,
+  image TEXT,
+  price DECIMAL(10,2),
+  msrp DECIMAL(10,2),
+  cost DECIMAL(10,2),
+  stock_quantity INTEGER DEFAULT 0,
+  sku TEXT,
+  barcode TEXT,
+  weight DECIMAL(10,2),
+  weight_unit TEXT,
+  length DECIMAL(10,2),
+  width DECIMAL(10,2),
+  height DECIMAL(10,2),
+  dimension_unit TEXT,
+  is_archived BOOLEAN DEFAULT false,
+  display_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Normalized product variants table
+CREATE TABLE IF NOT EXISTS public.product_variants (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  product_id UUID REFERENCES public.products(id) ON DELETE CASCADE NOT NULL,
+  client_id TEXT,
+  color_id TEXT,
+  color_name TEXT,
+  size_id TEXT,
+  size_name TEXT,
+  sku TEXT,
+  barcode TEXT,
+  price DECIMAL(10,2),
+  msrp DECIMAL(10,2),
+  cost DECIMAL(10,2),
+  stock_quantity INTEGER DEFAULT 0 CHECK (stock_quantity >= 0),
+  weight DECIMAL(10,2),
+  weight_unit TEXT,
+  length DECIMAL(10,2),
+  width DECIMAL(10,2),
+  height DECIMAL(10,2),
+  dimension_unit TEXT,
+  image TEXT,
+  is_archived BOOLEAN DEFAULT false,
+  display_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Shows table
 CREATE TABLE IF NOT EXISTS public.shows (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
@@ -80,6 +156,10 @@ CREATE INDEX IF NOT EXISTS idx_products_category ON public.products(category);
 CREATE INDEX IF NOT EXISTS idx_shows_seller_id ON public.shows(seller_id);
 CREATE INDEX IF NOT EXISTS idx_shows_status ON public.shows(status);
 CREATE INDEX IF NOT EXISTS idx_show_products_show_id ON public.show_products(show_id);
+CREATE INDEX IF NOT EXISTS idx_product_colors_product_id ON public.product_colors(product_id);
+CREATE INDEX IF NOT EXISTS idx_product_sizes_product_id ON public.product_sizes(product_id);
+CREATE INDEX IF NOT EXISTS idx_product_variants_product_id ON public.product_variants(product_id);
+CREATE INDEX IF NOT EXISTS idx_product_variants_sku ON public.product_variants(sku) WHERE sku IS NOT NULL;
 
 -- Row Level Security (RLS) Policies
 
@@ -88,6 +168,9 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.shows ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.show_products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_colors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_sizes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_variants ENABLE ROW LEVEL SECURITY;
 
 -- Profiles policies
 CREATE POLICY "Public profiles are viewable by everyone"
@@ -150,6 +233,96 @@ CREATE POLICY "Sellers can manage show products for own shows"
       AND shows.seller_id = auth.uid()
     )
   );
+
+-- Product colors policies
+CREATE POLICY "Product colors are viewable by everyone"
+  ON public.product_colors FOR SELECT
+  USING (true);
+
+CREATE POLICY "Sellers can manage own product colors"
+  ON public.product_colors FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.products
+      WHERE products.id = product_colors.product_id
+      AND products.seller_id = auth.uid()
+    )
+  );
+
+-- Product sizes policies
+CREATE POLICY "Product sizes are viewable by everyone"
+  ON public.product_sizes FOR SELECT
+  USING (true);
+
+CREATE POLICY "Sellers can manage own product sizes"
+  ON public.product_sizes FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.products
+      WHERE products.id = product_sizes.product_id
+      AND products.seller_id = auth.uid()
+    )
+  );
+
+-- Product variants policies
+CREATE POLICY "Product variants are viewable by everyone"
+  ON public.product_variants FOR SELECT
+  USING (true);
+
+CREATE POLICY "Sellers can manage own product variants"
+  ON public.product_variants FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.products
+      WHERE products.id = product_variants.product_id
+      AND products.seller_id = auth.uid()
+    )
+  );
+
+-- Atomic stock decrement RPC functions
+CREATE OR REPLACE FUNCTION public.decrement_variant_stock(
+  p_variant_id UUID,
+  p_quantity INTEGER
+)
+RETURNS INTEGER AS $$
+DECLARE
+  v_new_stock INTEGER;
+BEGIN
+  UPDATE public.product_variants
+  SET stock_quantity = stock_quantity - p_quantity
+  WHERE id = p_variant_id
+    AND stock_quantity >= p_quantity
+  RETURNING stock_quantity INTO v_new_stock;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Insufficient stock for variant %', p_variant_id;
+  END IF;
+
+  RETURN v_new_stock;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.decrement_product_stock(
+  p_product_id UUID,
+  p_quantity INTEGER
+)
+RETURNS INTEGER AS $$
+DECLARE
+  v_new_stock INTEGER;
+BEGIN
+  UPDATE public.products
+  SET quantity_in_stock = quantity_in_stock - p_quantity
+  WHERE id = p_product_id
+    AND quantity_in_stock >= p_quantity
+  RETURNING quantity_in_stock INTO v_new_stock;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Insufficient stock for product %', p_product_id;
+  END IF;
+
+  RETURN v_new_stock;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Function to automatically update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -239,3 +412,6 @@ CREATE TRIGGER update_cart_items_updated_at
 ALTER PUBLICATION supabase_realtime ADD TABLE public.products;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.shows;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.cart_items;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.product_variants;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.product_colors;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.product_sizes;

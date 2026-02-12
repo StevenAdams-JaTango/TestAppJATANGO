@@ -24,6 +24,23 @@ WHERE product_id IN (
   )
 );
 
+-- Normalized variant tables cascade-delete automatically, but be explicit
+DELETE FROM public.product_variants
+WHERE product_id IN (
+  SELECT id FROM public.products
+  WHERE seller_id = (SELECT id FROM public.profiles WHERE name ILIKE '%steven%' LIMIT 1)
+);
+DELETE FROM public.product_colors
+WHERE product_id IN (
+  SELECT id FROM public.products
+  WHERE seller_id = (SELECT id FROM public.profiles WHERE name ILIKE '%steven%' LIMIT 1)
+);
+DELETE FROM public.product_sizes
+WHERE product_id IN (
+  SELECT id FROM public.products
+  WHERE seller_id = (SELECT id FROM public.profiles WHERE name ILIKE '%steven%' LIMIT 1)
+);
+
 DELETE FROM public.products
 WHERE seller_id = (
   SELECT id FROM public.profiles
@@ -517,5 +534,38 @@ BEGIN
     v_seller_id
   );
 
-  RAISE NOTICE 'Done! Inserted 15 products for seller %', v_seller_id;
+  -- ============================================================
+  -- Populate normalized tables from JSONB for all seeded products
+  -- ============================================================
+  INSERT INTO public.product_colors (product_id, client_id, name, hex_code, image, price, msrp, cost, stock_quantity, sku, barcode, weight, weight_unit, display_order)
+  SELECT
+    p.id, c->>'id', c->>'name', c->>'hexCode', c->>'image',
+    (c->>'price')::DECIMAL(10,2), (c->>'msrp')::DECIMAL(10,2), (c->>'cost')::DECIMAL(10,2),
+    COALESCE((c->>'stockQuantity')::INTEGER, 0),
+    c->>'sku', c->>'barcode', (c->>'weight')::DECIMAL(10,2), c->>'weightUnit', idx
+  FROM public.products p, jsonb_array_elements(p.colors) WITH ORDINALITY AS t(c, idx)
+  WHERE p.seller_id = v_seller_id AND p.colors IS NOT NULL AND jsonb_array_length(p.colors) > 0;
+
+  INSERT INTO public.product_sizes (product_id, client_id, name, image, price, msrp, cost, stock_quantity, sku, barcode, weight, weight_unit, display_order)
+  SELECT
+    p.id, s->>'id', s->>'name', s->>'image',
+    (s->>'price')::DECIMAL(10,2), (s->>'msrp')::DECIMAL(10,2), (s->>'cost')::DECIMAL(10,2),
+    COALESCE((s->>'stockQuantity')::INTEGER, 0),
+    s->>'sku', s->>'barcode', (s->>'weight')::DECIMAL(10,2), s->>'weightUnit', idx
+  FROM public.products p, jsonb_array_elements(p.sizes) WITH ORDINALITY AS t(s, idx)
+  WHERE p.seller_id = v_seller_id AND p.sizes IS NOT NULL AND jsonb_array_length(p.sizes) > 0;
+
+  INSERT INTO public.product_variants (product_id, client_id, color_id, color_name, size_id, size_name, sku, barcode, price, msrp, cost, stock_quantity, weight, weight_unit, length, width, height, dimension_unit, image, display_order)
+  SELECT
+    p.id, v->>'id', v->>'colorId', v->>'colorName', v->>'sizeId', v->>'sizeName',
+    v->>'sku', v->>'barcode',
+    (v->>'price')::DECIMAL(10,2), (v->>'msrp')::DECIMAL(10,2), (v->>'cost')::DECIMAL(10,2),
+    COALESCE((v->>'stockQuantity')::INTEGER, 0),
+    (v->>'weight')::DECIMAL(10,2), v->>'weightUnit',
+    (v->>'length')::DECIMAL(10,2), (v->>'width')::DECIMAL(10,2), (v->>'height')::DECIMAL(10,2),
+    v->>'dimensionUnit', v->>'image', idx
+  FROM public.products p, jsonb_array_elements(p.variants) WITH ORDINALITY AS t(v, idx)
+  WHERE p.seller_id = v_seller_id AND p.variants IS NOT NULL AND jsonb_array_length(p.variants) > 0;
+
+  RAISE NOTICE 'Done! Inserted 15 products + normalized variant rows for seller %', v_seller_id;
 END $$;

@@ -1,5 +1,13 @@
-import { supabase } from "@/lib/supabase";
-import { Product } from "@/types";
+import {
+  supabase,
+  DbProductColorRow,
+  DbProductSizeRow,
+  DbProductVariantRow,
+  mapColorRow,
+  mapSizeRow,
+  mapVariantRow,
+} from "@/lib/supabase";
+import { Product, ColorVariant, SizeVariant, ProductVariant } from "@/types";
 
 export const savedProductsService = {
   async save(productId: string): Promise<boolean> {
@@ -77,7 +85,10 @@ export const savedProductsService = {
 
       const { data, error } = await supabase
         .from("saved_products")
-        .select("product_id, created_at, products(*)")
+        .select(
+          `product_id, created_at,
+          products(*, product_colors(*), product_sizes(*), product_variants(*))`,
+        )
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -90,6 +101,35 @@ export const savedProductsService = {
         .filter((row: any) => row.products)
         .map((row: any) => {
           const p = row.products;
+          const cRows: DbProductColorRow[] = p.product_colors || [];
+          const sRows: DbProductSizeRow[] = p.product_sizes || [];
+          const vRows: DbProductVariantRow[] = p.product_variants || [];
+
+          const colors: ColorVariant[] =
+            cRows.length > 0
+              ? cRows
+                  .sort(
+                    (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0),
+                  )
+                  .map(mapColorRow)
+              : p.colors || [];
+          const sizes: SizeVariant[] =
+            sRows.length > 0
+              ? sRows
+                  .sort(
+                    (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0),
+                  )
+                  .map(mapSizeRow)
+              : p.sizes || [];
+          const variants: ProductVariant[] =
+            vRows.length > 0
+              ? vRows
+                  .sort(
+                    (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0),
+                  )
+                  .map(mapVariantRow)
+              : p.variants || [];
+
           return {
             id: p.id,
             name: p.name,
@@ -99,9 +139,9 @@ export const savedProductsService = {
             description: p.description || "",
             category: p.category,
             quantityInStock: p.quantity_in_stock,
-            colors: p.colors || [],
-            sizes: p.sizes || [],
-            variants: p.variants || [],
+            colors,
+            sizes,
+            variants,
             sellerId: p.seller_id,
             sellerName: "",
             sellerAvatar: null,

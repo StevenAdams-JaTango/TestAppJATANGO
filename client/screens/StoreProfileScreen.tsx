@@ -35,7 +35,15 @@ import { ExploreStackParamList } from "@/navigation/ExploreStackNavigator";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { Product, Short } from "@/types";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { supabase } from "@/lib/supabase";
+import {
+  supabase,
+  DbProductColorRow,
+  DbProductSizeRow,
+  DbProductVariantRow,
+  mapColorRow,
+  mapSizeRow,
+  mapVariantRow,
+} from "@/lib/supabase";
 import { shortsService } from "@/services/shorts";
 
 type NavigationProp = NativeStackNavigationProp<
@@ -104,28 +112,55 @@ export default function StoreProfileScreen() {
 
       const { data: productsData, error: productsError } = await supabase
         .from("products")
-        .select("*")
+        .select("*, product_colors(*), product_sizes(*), product_variants(*)")
         .eq("seller_id", storeId)
         .order("created_at", { ascending: false });
 
       if (productsError) throw productsError;
 
-      const mappedProducts: Product[] = (productsData || []).map((p: any) => ({
-        id: p.id,
-        name: p.name,
-        price: p.price,
-        image: p.image,
-        images: p.images || [],
-        description: p.description || "",
-        category: p.category,
-        quantityInStock: p.quantity_in_stock,
-        colors: p.colors || [],
-        sizes: p.sizes || [],
-        variants: p.variants || [],
-        sellerId: p.seller_id,
-        sellerName: profileData?.name || "Unknown",
-        sellerAvatar: profileData?.avatar_url || undefined,
-      }));
+      const mappedProducts: Product[] = (productsData || []).map((p: any) => {
+        const cRows: DbProductColorRow[] = p.product_colors || [];
+        const sRows: DbProductSizeRow[] = p.product_sizes || [];
+        const vRows: DbProductVariantRow[] = p.product_variants || [];
+
+        return {
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          image: p.image,
+          images: p.images || [],
+          description: p.description || "",
+          category: p.category,
+          quantityInStock: p.quantity_in_stock,
+          colors:
+            cRows.length > 0
+              ? cRows
+                  .sort(
+                    (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0),
+                  )
+                  .map(mapColorRow)
+              : p.colors || [],
+          sizes:
+            sRows.length > 0
+              ? sRows
+                  .sort(
+                    (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0),
+                  )
+                  .map(mapSizeRow)
+              : p.sizes || [],
+          variants:
+            vRows.length > 0
+              ? vRows
+                  .sort(
+                    (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0),
+                  )
+                  .map(mapVariantRow)
+              : p.variants || [],
+          sellerId: p.seller_id,
+          sellerName: profileData?.name || "Unknown",
+          sellerAvatar: profileData?.avatar_url || undefined,
+        };
+      });
 
       setProducts(mappedProducts);
 

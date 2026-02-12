@@ -375,23 +375,45 @@ export function registerPaymentRoutes(app: Express) {
         // Order was created but items failed — log but don't fail the whole thing
       }
 
-      // Decrement stock for each item
+      // Decrement stock atomically for each item
       for (const item of items) {
-        const { data: product } = await supabase
-          .from("products")
-          .select("quantity_in_stock")
-          .eq("id", item.productId)
-          .single();
-
-        if (product) {
-          const newStock = Math.max(
-            0,
-            (product.quantity_in_stock || 0) - item.quantity,
+        try {
+          if (item.selectedVariantId) {
+            // Variant-level atomic decrement (prevents overselling)
+            const { error: stockErr } = await supabase.rpc(
+              "decrement_variant_stock",
+              {
+                p_variant_id: item.selectedVariantId,
+                p_quantity: item.quantity,
+              },
+            );
+            if (stockErr) {
+              console.warn(
+                `[Payments] Variant stock decrement failed for ${item.selectedVariantId}:`,
+                stockErr.message,
+              );
+            }
+          } else {
+            // Product-level atomic decrement (non-variant products)
+            const { error: stockErr } = await supabase.rpc(
+              "decrement_product_stock",
+              {
+                p_product_id: item.productId,
+                p_quantity: item.quantity,
+              },
+            );
+            if (stockErr) {
+              console.warn(
+                `[Payments] Product stock decrement failed for ${item.productId}:`,
+                stockErr.message,
+              );
+            }
+          }
+        } catch (stockError) {
+          console.error(
+            `[Payments] Stock decrement error for product ${item.productId}:`,
+            stockError,
           );
-          await supabase
-            .from("products")
-            .update({ quantity_in_stock: newStock })
-            .eq("id", item.productId);
         }
       }
 
@@ -568,23 +590,43 @@ export function registerPaymentRoutes(app: Express) {
           console.error("[Payments] Error creating order items:", itemsError);
         }
 
-        // Decrement stock
+        // Decrement stock atomically for each item
         for (const item of items) {
-          const { data: product } = await supabase
-            .from("products")
-            .select("quantity_in_stock")
-            .eq("id", item.productId)
-            .single();
-
-          if (product) {
-            const newStock = Math.max(
-              0,
-              (product.quantity_in_stock || 0) - item.quantity,
+          try {
+            if (item.selectedVariantId) {
+              const { error: stockErr } = await supabase.rpc(
+                "decrement_variant_stock",
+                {
+                  p_variant_id: item.selectedVariantId,
+                  p_quantity: item.quantity,
+                },
+              );
+              if (stockErr) {
+                console.warn(
+                  `[Payments] Variant stock decrement failed for ${item.selectedVariantId}:`,
+                  stockErr.message,
+                );
+              }
+            } else {
+              const { error: stockErr } = await supabase.rpc(
+                "decrement_product_stock",
+                {
+                  p_product_id: item.productId,
+                  p_quantity: item.quantity,
+                },
+              );
+              if (stockErr) {
+                console.warn(
+                  `[Payments] Product stock decrement failed for ${item.productId}:`,
+                  stockErr.message,
+                );
+              }
+            }
+          } catch (stockError) {
+            console.error(
+              `[Payments] Stock decrement error for product ${item.productId}:`,
+              stockError,
             );
-            await supabase
-              .from("products")
-              .update({ quantity_in_stock: newStock })
-              .eq("id", item.productId);
           }
         }
 

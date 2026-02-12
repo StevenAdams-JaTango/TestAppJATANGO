@@ -304,10 +304,8 @@ export default function AddProductScreen() {
       );
       setColors(updatedColors);
       // Also archive any variants using this color
-      setCombinedVariants(
-        combinedVariants.map((v) =>
-          v.colorId === id ? { ...v, isArchived: true } : v,
-        ),
+      setCombinedVariants((prev) =>
+        prev.map((v) => (v.colorId === id ? { ...v, isArchived: true } : v)),
       );
     } else {
       const updatedColors = colors.filter((c) => c.id !== id);
@@ -322,10 +320,8 @@ export default function AddProductScreen() {
       colors.map((c) => (c.id === id ? { ...c, isArchived: false } : c)),
     );
     // Also unarchive any variants using this color
-    setCombinedVariants(
-      combinedVariants.map((v) =>
-        v.colorId === id ? { ...v, isArchived: false } : v,
-      ),
+    setCombinedVariants((prev) =>
+      prev.map((v) => (v.colorId === id ? { ...v, isArchived: false } : v)),
     );
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
@@ -406,10 +402,8 @@ export default function AddProductScreen() {
       );
       setSizes(updatedSizes);
       // Also archive any variants using this size
-      setCombinedVariants(
-        combinedVariants.map((v) =>
-          v.sizeId === id ? { ...v, isArchived: true } : v,
-        ),
+      setCombinedVariants((prev) =>
+        prev.map((v) => (v.sizeId === id ? { ...v, isArchived: true } : v)),
       );
     } else {
       const updatedSizes = sizes.filter((s) => s.id !== id);
@@ -422,10 +416,8 @@ export default function AddProductScreen() {
   const handleUnarchiveSize = (id: string) => {
     setSizes(sizes.map((s) => (s.id === id ? { ...s, isArchived: false } : s)));
     // Also unarchive any variants using this size
-    setCombinedVariants(
-      combinedVariants.map((v) =>
-        v.sizeId === id ? { ...v, isArchived: false } : v,
-      ),
+    setCombinedVariants((prev) =>
+      prev.map((v) => (v.sizeId === id ? { ...v, isArchived: false } : v)),
     );
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
@@ -490,26 +482,65 @@ export default function AddProductScreen() {
   };
 
   // Auto-generate variants (supports color-only, size-only, or combined)
+  // Uses functional setState to avoid stale closure over combinedVariants
   const autoGenerateCombinedVariants = (
     colorsToUse: ColorVariant[],
     sizesToUse: SizeVariant[],
   ) => {
-    const newVariants: ProductVariant[] = [];
+    setCombinedVariants((prev) => {
+      const newVariants: ProductVariant[] = [];
 
-    // If both colors and sizes exist, create combined variants
-    if (colorsToUse.length > 0 && sizesToUse.length > 0) {
-      for (const color of colorsToUse) {
-        for (const size of sizesToUse) {
-          const existing = combinedVariants.find(
-            (v) => v.colorId === color.id && v.sizeId === size.id,
-          );
+      // If both colors and sizes exist, create combined variants
+      if (colorsToUse.length > 0 && sizesToUse.length > 0) {
+        for (const color of colorsToUse) {
+          for (const size of sizesToUse) {
+            const existing = prev.find(
+              (v) => v.colorId === color.id && v.sizeId === size.id,
+            );
+            if (existing) {
+              newVariants.push(existing);
+            } else {
+              newVariants.push({
+                id: `variant_${color.id}_${size.id}`,
+                colorId: color.id,
+                colorName: color.name,
+                sizeId: size.id,
+                sizeName: size.name,
+                stockQuantity: 0,
+                weightUnit: "oz",
+                dimensionUnit: "in",
+              });
+            }
+          }
+        }
+      }
+      // If only colors exist, create color-only variants
+      else if (colorsToUse.length > 0) {
+        for (const color of colorsToUse) {
+          const existing = prev.find((v) => v.colorId === color.id);
           if (existing) {
             newVariants.push(existing);
           } else {
             newVariants.push({
-              id: `variant_${color.id}_${size.id}`,
+              id: `variant_color_${color.id}`,
               colorId: color.id,
               colorName: color.name,
+              stockQuantity: 0,
+              weightUnit: "oz",
+              dimensionUnit: "in",
+            });
+          }
+        }
+      }
+      // If only sizes exist, create size-only variants
+      else if (sizesToUse.length > 0) {
+        for (const size of sizesToUse) {
+          const existing = prev.find((v) => v.sizeId === size.id);
+          if (existing) {
+            newVariants.push(existing);
+          } else {
+            newVariants.push({
+              id: `variant_size_${size.id}`,
               sizeId: size.id,
               sizeName: size.name,
               stockQuantity: 0,
@@ -519,45 +550,9 @@ export default function AddProductScreen() {
           }
         }
       }
-    }
-    // If only colors exist, create color-only variants
-    else if (colorsToUse.length > 0) {
-      for (const color of colorsToUse) {
-        const existing = combinedVariants.find((v) => v.colorId === color.id);
-        if (existing) {
-          newVariants.push(existing);
-        } else {
-          newVariants.push({
-            id: `variant_color_${color.id}`,
-            colorId: color.id,
-            colorName: color.name,
-            stockQuantity: 0,
-            weightUnit: "oz",
-            dimensionUnit: "in",
-          });
-        }
-      }
-    }
-    // If only sizes exist, create size-only variants
-    else if (sizesToUse.length > 0) {
-      for (const size of sizesToUse) {
-        const existing = combinedVariants.find((v) => v.sizeId === size.id);
-        if (existing) {
-          newVariants.push(existing);
-        } else {
-          newVariants.push({
-            id: `variant_size_${size.id}`,
-            sizeId: size.id,
-            sizeName: size.name,
-            stockQuantity: 0,
-            weightUnit: "oz",
-            dimensionUnit: "in",
-          });
-        }
-      }
-    }
 
-    setCombinedVariants(newVariants);
+      return newVariants;
+    });
   };
 
   const handleUpdateVariantField = (
@@ -565,8 +560,8 @@ export default function AddProductScreen() {
     field: keyof ProductVariant,
     value: string,
   ) => {
-    setCombinedVariants(
-      combinedVariants.map((v) => {
+    setCombinedVariants((prev) =>
+      prev.map((v) => {
         if (v.id !== variantId) return v;
         if (
           field === "price" ||
@@ -591,22 +586,18 @@ export default function AddProductScreen() {
     // If editing an existing product, archive the variant (preserve for order history)
     // If creating a new product, delete it completely (no sales possible yet)
     if (isEditMode) {
-      setCombinedVariants(
-        combinedVariants.map((v) =>
-          v.id === variantId ? { ...v, isArchived: true } : v,
-        ),
+      setCombinedVariants((prev) =>
+        prev.map((v) => (v.id === variantId ? { ...v, isArchived: true } : v)),
       );
     } else {
-      setCombinedVariants(combinedVariants.filter((v) => v.id !== variantId));
+      setCombinedVariants((prev) => prev.filter((v) => v.id !== variantId));
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const handleUnarchiveVariant = (variantId: string) => {
-    setCombinedVariants(
-      combinedVariants.map((v) =>
-        v.id === variantId ? { ...v, isArchived: false } : v,
-      ),
+    setCombinedVariants((prev) =>
+      prev.map((v) => (v.id === variantId ? { ...v, isArchived: false } : v)),
     );
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
@@ -614,7 +605,6 @@ export default function AddProductScreen() {
   // Get active (non-archived) variants for display and validation
   const activeVariants = combinedVariants.filter((v) => !v.isArchived);
   const archivedVariants = combinedVariants.filter((v) => v.isArchived);
-
   const handleVariantImagePick = async (variantId: string) => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
@@ -627,8 +617,8 @@ export default function AddProductScreen() {
       const uri = result.assets[0].uri;
       setPendingCropImage(uri);
       setCropCallback(() => (croppedUri: string) => {
-        setCombinedVariants(
-          combinedVariants.map((v) =>
+        setCombinedVariants((prev) =>
+          prev.map((v) =>
             v.id === variantId ? { ...v, image: croppedUri } : v,
           ),
         );
@@ -809,17 +799,29 @@ export default function AddProductScreen() {
         variants: uploadedVariants.length > 0 ? uploadedVariants : undefined,
       };
 
+      let result;
       if (isEditMode && productId) {
-        await productsService.updateProduct(productId, input);
+        result = await productsService.updateProduct(productId, input);
       } else {
-        await productsService.createProduct(input);
+        result = await productsService.createProduct(input);
       }
+
+      if (!result) {
+        Alert.alert("Error", "Failed to save product. Please try again.");
+        return;
+      }
+
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      navigation.goBack();
-    } catch {
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      } else {
+        navigation.navigate("Products");
+      }
+    } catch (err: any) {
+      console.error("[handleSave] error:", err);
       Alert.alert(
         "Error",
-        `Failed to ${isEditMode ? "update" : "save"} product. Please try again.`,
+        `Failed to ${isEditMode ? "update" : "save"} product: ${err?.message || err}`,
       );
     } finally {
       setSaving(false);
@@ -839,7 +841,16 @@ export default function AddProductScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.closeBtn}>
+        <Pressable
+          onPress={() => {
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              navigation.navigate("Products");
+            }
+          }}
+          style={styles.closeBtn}
+        >
           <Feather name="x" size={24} color={theme.text} />
         </Pressable>
         <ThemedText style={styles.headerTitle}>
@@ -1477,7 +1488,12 @@ export default function AddProductScreen() {
               )}
             </View>
           ))}
-        <View style={styles.colorInputContainer}>
+        <View
+          style={[
+            styles.colorInputContainer,
+            showColorDropdown && { zIndex: 101 },
+          ]}
+        >
           <View style={styles.addVariantRow}>
             <Pressable
               style={[styles.colorPreview, { backgroundColor: newColorHex }]}
@@ -1515,7 +1531,15 @@ export default function AddProductScreen() {
             </Pressable>
           </View>
           {showColorDropdown && (
-            <View style={styles.colorDropdown}>
+            <View
+              style={[
+                styles.colorDropdown,
+                {
+                  backgroundColor: theme.backgroundSecondary,
+                  borderColor: theme.border,
+                },
+              ]}
+            >
               <ScrollView
                 style={styles.colorDropdownScroll}
                 nestedScrollEnabled
@@ -1530,10 +1554,19 @@ export default function AddProductScreen() {
                       key={color.name}
                       style={styles.colorDropdownItem}
                       onPress={() => {
-                        setNewColorName(color.name);
-                        setNewColorHex(color.hex);
+                        // Auto-add the color directly
+                        const newColor: ColorVariant = {
+                          id: `color_${Date.now()}`,
+                          name: color.name,
+                          hexCode: color.hex,
+                        };
+                        const updatedColors = [...colors, newColor];
+                        setColors(updatedColors);
+                        setNewColorName("");
+                        setNewColorHex("#000000");
                         setShowColorDropdown(false);
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        autoGenerateCombinedVariants(updatedColors, sizes);
                       }}
                     >
                       <View style={styles.colorDropdownItemLeft}>
@@ -1814,7 +1847,12 @@ export default function AddProductScreen() {
               )}
             </View>
           ))}
-        <View style={styles.sizeInputContainer}>
+        <View
+          style={[
+            styles.sizeInputContainer,
+            showSizeDropdown && { zIndex: 100 },
+          ]}
+        >
           <View style={styles.addVariantRow}>
             <TextInput
               style={[styles.input, { flex: 1 }]}
@@ -1833,7 +1871,15 @@ export default function AddProductScreen() {
             </Pressable>
           </View>
           {showSizeDropdown && (
-            <View style={styles.sizeDropdown}>
+            <View
+              style={[
+                styles.sizeDropdown,
+                {
+                  backgroundColor: theme.backgroundSecondary,
+                  borderColor: theme.border,
+                },
+              ]}
+            >
               <ScrollView
                 style={styles.sizeDropdownScroll}
                 nestedScrollEnabled
@@ -1855,9 +1901,17 @@ export default function AddProductScreen() {
                       key={`${item.category}-${item.size}-${index}`}
                       style={styles.sizeDropdownItem}
                       onPress={() => {
-                        setNewSizeName(item.size);
+                        // Auto-add the size directly
+                        const newSize: SizeVariant = {
+                          id: `size_${Date.now()}`,
+                          name: item.size,
+                        };
+                        const updatedSizes = [...sizes, newSize];
+                        setSizes(updatedSizes);
+                        setNewSizeName("");
                         setShowSizeDropdown(false);
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        autoGenerateCombinedVariants(colors, updatedSizes);
                       }}
                     >
                       <ThemedText style={styles.sizeDropdownItemText}>
@@ -1879,8 +1933,17 @@ export default function AddProductScreen() {
                         styles.sizeDropdownItemCustom,
                       ]}
                       onPress={() => {
+                        // Auto-add the custom size directly
+                        const newSize: SizeVariant = {
+                          id: `size_${Date.now()}`,
+                          name: newSizeName.trim(),
+                        };
+                        const updatedSizes = [...sizes, newSize];
+                        setSizes(updatedSizes);
+                        setNewSizeName("");
                         setShowSizeDropdown(false);
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        autoGenerateCombinedVariants(colors, updatedSizes);
                       }}
                     >
                       <ThemedText style={styles.sizeDropdownItemText}>
@@ -2654,7 +2717,7 @@ const styles = StyleSheet.create({
   },
   colorInputContainer: {
     position: "relative",
-    zIndex: 101,
+    zIndex: 1,
   },
   colorDropdown: {
     position: "absolute",
@@ -2699,7 +2762,7 @@ const styles = StyleSheet.create({
   },
   sizeInputContainer: {
     position: "relative",
-    zIndex: 100,
+    zIndex: 1,
   },
   sizeDropdown: {
     position: "absolute",

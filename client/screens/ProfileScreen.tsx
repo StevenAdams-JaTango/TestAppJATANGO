@@ -356,7 +356,7 @@ export default function ProfileScreen() {
       contentContainerStyle={[
         styles.content,
         {
-          paddingTop: insets.top + 44 + Spacing.xl,
+          paddingTop: 0,
           paddingBottom: tabBarHeight + Spacing.xl,
         },
       ]}
@@ -375,6 +375,13 @@ export default function ProfileScreen() {
         />
       }
     >
+      <LinearGradient
+        colors={[theme.secondary, theme.primary]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.profileBanner, { paddingTop: insets.top }]}
+      />
+
       <Animated.View
         entering={FadeInDown.delay(100).springify()}
         style={styles.avatarSection}
@@ -768,8 +775,13 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: Spacing.lg,
   },
+  profileBanner: {
+    height: 140,
+    width: "100%",
+  },
   avatarSection: {
     alignItems: "center",
+    marginTop: -55,
     marginBottom: Spacing.xl,
   },
   avatarBorder: {

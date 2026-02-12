@@ -146,7 +146,16 @@ export default function ProductsScreen() {
     >
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: theme.border }]}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <Pressable
+          onPress={() => {
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              navigation.navigate("Main" as never);
+            }
+          }}
+          style={styles.backBtn}
+        >
           <Feather name="arrow-left" size={24} color={theme.text} />
         </Pressable>
         <ThemedText style={[styles.headerTitle, { color: theme.text }]}>

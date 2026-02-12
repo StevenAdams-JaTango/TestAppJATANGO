@@ -29,7 +29,6 @@ import { navigationRef } from "@/navigation/navigationRef";
 import { useCart } from "@/contexts/CartContext";
 import { useLiveRooms } from "@/hooks/useLiveRooms";
 import { useTheme } from "@/hooks/useTheme";
-import { useUnreadNotifications } from "@/hooks/useUnreadNotifications";
 import { Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { HomeStackParamList } from "@/navigation/HomeStackNavigator";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -57,7 +56,6 @@ export default function HomeScreen() {
   const navigation = useNavigation<NavigationProp>();
   const isFocused = useIsFocused();
   const { totalItems } = useCart();
-  const { unreadCount } = useUnreadNotifications();
   const [refreshing, setRefreshing] = useState(false);
   const [stores, setStores] = useState<Store[]>([]);
   const { rooms: liveRooms, refetch: refetchRooms } = useLiveRooms({
@@ -132,20 +130,6 @@ export default function HomeScreen() {
             </ThemedText>
           </View>
         )}
-        <View style={{ flex: 1 }} />
-        <Pressable
-          onPress={() => navigation.navigate("Notifications" as any)}
-          style={styles.bellBtn}
-        >
-          <Feather name="bell" size={22} color={theme.text} />
-          {unreadCount > 0 && (
-            <View style={styles.bellBadge}>
-              <ThemedText style={styles.bellBadgeText}>
-                {unreadCount > 99 ? "99+" : unreadCount}
-              </ThemedText>
-            </View>
-          )}
-        </Pressable>
       </View>
       <ScrollView
         style={styles.scrollView}
@@ -627,34 +611,5 @@ const styles = StyleSheet.create({
     textAlign: "center",
     includeFontPadding: false,
     textAlignVertical: "center",
-  },
-  bellBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  bellBadge: {
-    position: "absolute",
-    top: 2,
-    right: 2,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: "#ef4444",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 3,
-    borderWidth: 2,
-    borderColor: "#fff",
-  },
-  bellBadgeText: {
-    color: "#fff",
-    fontSize: 10,
-    fontWeight: "800",
-    lineHeight: 12,
-    textAlign: "center",
-    includeFontPadding: false,
   },
 });
